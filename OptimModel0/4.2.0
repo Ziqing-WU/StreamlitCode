@@ -1,0 +1,16 @@
+Collecting nbformat
+  Downloading nbformat-5.9.2-py3-none-any.whl.metadata (3.4 kB)
+Collecting fastjsonschema (from nbformat)
+  Downloading fastjsonschema-2.19.1-py3-none-any.whl.metadata (2.1 kB)
+Requirement already satisfied: jsonschema>=2.6 in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from nbformat) (4.17.3)
+Requirement already satisfied: jupyter-core in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from nbformat) (5.5.0)
+Requirement already satisfied: traitlets>=5.1 in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from nbformat) (5.7.1)
+Requirement already satisfied: attrs>=17.4.0 in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from jsonschema>=2.6->nbformat) (23.1.0)
+Requirement already satisfied: pyrsistent!=0.17.0,!=0.17.1,!=0.17.2,>=0.14.0 in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from jsonschema>=2.6->nbformat) (0.18.0)
+Requirement already satisfied: platformdirs>=2.5 in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from jupyter-core->nbformat) (3.10.0)
+Requirement already satisfied: pywin32>=300 in c:\users\zwu\.conda\envs\anadon\lib\site-packages (from jupyter-core->nbformat) (305.1)
+Downloading nbformat-5.9.2-py3-none-any.whl (77 kB)
+   ---------------------------------------- 0.0/77.6 kB ? eta -:--:--   ----- ---------------------------------- 10.2/77.6 kB ? eta -:--:--   --------------- ------------------------ 30.7/77.6 kB 435.7 kB/s eta 0:00:01   ---------------------------------------- 77.6/77.6 kB 716.5 kB/s eta 0:00:00
+Downloading fastjsonschema-2.19.1-py3-none-any.whl (23 kB)
+Installing collected packages: fastjsonschema, nbformat
+Successfully installed fastjsonschema-2.19.1 nbformat-5.9.2
