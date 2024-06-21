@@ -1,10 +1,6 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import numpy as np
-import math
-from gurobipy import Model, GRB, quicksum
+import sys
+sys.path.append("..")
+from tools import *
 
 st.markdown('<a name="illustration"></a>', unsafe_allow_html=True)
 st.header("Illustration")

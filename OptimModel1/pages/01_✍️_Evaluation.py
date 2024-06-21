@@ -1,51 +1,12 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import numpy as np
-import math
-from gurobipy import Model, GRB, quicksum
+import sys
+sys.path.append("..")
+from tools import *
 import sys, os
 sys.path.append(os.path.abspath(os.path.join('..')))
-from tools import haversine
 
-st.header("Model")
-st.graphviz_chart(
-    """
-digraph Network {
-    node [shape=box]; // Sets the shape of nodes to be boxes
 
-    // Define node styles
-    "Factory (F)" ;
-    "Logistics Node (L)" ;
-    "Retrofit Center (R)";
-    "Market Segment (M)";
-    "Recovery Center (V)" ;
-    supplier [shape=ellipse color="gray70" fontcolor="gray70"];
-    "recycling center" [shape=ellipse color="gray70" fontcolor="gray70"];
-    "EoL Vehicle processing center" [shape=ellipse color="gray70" fontcolor="gray70"];
-   
+st.header("Evaluation Model")
 
-    // Define same rank (horizontal alignment)
-    //{ rank=same; "Factory (F)" , "Logistics Node (L)", "Retrofit Center (R)", supplier  }
-
-    // Define edges
-    supplier -> "Factory (F)" [color="gray70" headlabel="components" labelfontcolor="gray70"];
-    "Factory (F)" -> "Logistics Node (L)" [label="RU"];
-    "Logistics Node (L)" -> "Retrofit Center (R)" [label="RU"];
-    "Logistics Node (L)" -> "Logistics Node (L)" [label="RU"];
-    "Market Segment (M)" -> "Retrofit Center (R)" [label="EoLP"];
-    "Retrofit Center (R)" -> "Market Segment (M)" [label="RP"];
-    //"Retrofit Center (R)" -> "Recovery Center (V)" [label="ExPa"];
-    "Retrofit Center (R)" -> "EoL Vehicle processing center"[color="gray70" headlabel="retrieved parts & EoL vehicles" labelfontcolor="grey70"];
-    "Recovery Center (V)" -> "Logistics Node (L)" [label="RU"];
-    "Recovery Center (V)" -> "Factory (F)" [label="EoLPa"];
-    "Market Segment (M)" -> "Retrofit Center (R)" [label="PR"];
-    "Retrofit Center (R)" -> "Recovery Center (V)" [label="EoLRU"];
-    "Recovery Center (V)" -> "recycling center"[color="gray70" headlabel="recyclable materials" labelfontcolor="grey70"];
-	//"Recovery Center (V)" -> "recycling center" [label="qe_mrpt-q_vfpt-q_vlpt"];
-}
-""")
 '''
 ## Types of flows:
 - RU: retrofit units -- model dependent
@@ -249,10 +210,7 @@ $q_{ii'pt}^{RU}, q_{ii'pt}^{PR}, q_{ii'pt}^{RP}, q_{ii'pt}^{EoLP}, q_{ii'pt}^{Eo
 
 '''
 
-st.sidebar.title("Table of Contents")
-toc_items = ["Hypothesis", "Sets", "Decision Variables", "Parameters", "Objective function", "Constraints", "Datasets", "Results"]
-for item in toc_items:
-    st.sidebar.markdown(f"[{item}](#{item.lower().replace(' ', '-')})")
+create_toc()
 
 '''
 ## Datasets
@@ -315,13 +273,13 @@ x_lt = pd.DataFrame(np.ones((len(L),len(T))),index=L, columns=T)
 x_rt = pd.DataFrame(np.ones((len(R),len(T))),index=R, columns=T)
 x_vt = pd.DataFrame(np.ones((len(V),len(T))),index=V, columns=T)
 
-capMN_ft = pd.DataFrame(np.random.randint(10000, 50000, size=(len(F),len(T)), dtype=int),index=F, columns=T)
-capRMN_ft = pd.DataFrame(np.random.randint(2000, 10000, size=(len(F),len(T)), dtype=int),index=F, columns=T)
-capH_lt = pd.DataFrame(np.random.randint(10000, 50000, size=(len(L),len(T)), dtype=int),index=L, columns=T)
-capR_rt = pd.DataFrame(np.random.randint(10000, 30000, size=(len(R),len(T)), dtype=int),index=R, columns=T)
-capDP_rt = pd.DataFrame(np.random.randint(6000, 20000, size=(len(R),len(T)), dtype=int),index=R, columns=T)
-capRF_vt = pd.DataFrame(np.random.randint(10000, 50000, size=(len(V),len(T)), dtype=int),index=V, columns=T)
-capDRU_vt = pd.DataFrame(np.random.randint(10000, 50000, size=(len(V),len(T)), dtype=int),index=V, columns=T)
+capMN_ft = pd.DataFrame(np.random.randint(1000, 5000, size=(len(F),len(T)), dtype=int),index=F, columns=T)
+capRMN_ft = pd.DataFrame(np.random.randint(200, 1000, size=(len(F),len(T)), dtype=int),index=F, columns=T)
+capH_lt = pd.DataFrame(np.random.randint(1000, 5000, size=(len(L),len(T)), dtype=int),index=L, columns=T)
+capR_rt = pd.DataFrame(np.random.randint(1000, 3000, size=(len(R),len(T)), dtype=int),index=R, columns=T)
+capDP_rt = pd.DataFrame(np.random.randint(600, 2000, size=(len(R),len(T)), dtype=int),index=R, columns=T)
+capRF_vt = pd.DataFrame(np.random.randint(1000, 5000, size=(len(V),len(T)), dtype=int),index=V, columns=T)
+capDRU_vt = pd.DataFrame(np.random.randint(1000, 5000, size=(len(V),len(T)), dtype=int),index=V, columns=T)
 
 molMN_ft = pd.DataFrame(np.random.randint(50, 100, size=(len(F),len(T)), dtype=int),index=F, columns=T)
 molRMN_ft = pd.DataFrame(np.random.randint(10, 20, size=(len(F),len(T)), dtype=int),index=F, columns=T)
@@ -348,14 +306,14 @@ grid1, grid2 = np.meshgrid(M,P)
 index = pd.MultiIndex.from_tuples(list(zip(grid1.flatten(), grid2.flatten())))
 dm_mpt = pd.DataFrame(np.random.randint(100, 1000, size=(len(M)*len(P),len(T))),index=index, columns=T)
 dmEoLP_mpt = pd.DataFrame(np.random.randint(10, 100, size=(len(M)*len(P),len(T))),index=index, columns=T)
-                      
+
 pl_TR = 1000
 tf_TR = 0.1
 fr_TR = 0.8
 utf_PR = 0.2
 utf_RP = 0.1
-lofPR_p = 5000
-lofEoLP_p = 1000
+lofPR_p = 500
+lofEoLP_p = 100
 
 # Create a model
 model = Model("Evaluation")
@@ -385,8 +343,8 @@ lost_orders_cf = quicksum(lo_PR[m, p, t]*lofPR_p + lo_EoLP[m, p, t]*lofEoLP_p fo
 
 objfunc = operation_cf_factory + operation_cf_logistics + operation_cf_retrofit + operation_cf_recovery + transport_cf + lost_orders_cf
 
-# model.setObjective(objfunc, GRB.MINIMIZE)
-model.setObjective(lost_orders_cf, GRB.MINIMIZE)
+model.setObjective(objfunc, GRB.MINIMIZE)
+# model.setObjective(lost_orders_cf, GRB.MINIMIZE)
 
 
 # Demand fulfillment
@@ -477,8 +435,8 @@ if model.status == GRB.OPTIMAL:
 else:
     st.write("No solution found")
 st.write(df_result)
-# st.write("Objective value: ", model.objVal)
-st.write(dm_mpt)
+st.write("Objective value: ", model.objVal)
+# st.write(dm_mpt)
 if model.status == GRB.INFEASIBLE:
     st.write("Model is infeasible")
     model.computeIIS()

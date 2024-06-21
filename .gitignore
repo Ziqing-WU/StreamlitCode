@@ -1,2 +1,4 @@
 *.csv
 DemandGenerator/chorepleth_data
+*.json
+*.pkl
