@@ -18,7 +18,7 @@ st.header("Integrated Model")
 
 *Allocation*
 
-$z_{ii't}$ indicates whether the flow from $i$ to $i'$ is authorized
+$z_{jj't}, (j, j')\in J^2$ indicates whether the flow from $j$ to $j'$ is authorized 
 
 ### Flow
 - **Retrofit Units (RU)**:  $q_{ii'pt}^{RU}$  represents the flow of retrofit units from node $i$ to node $i'$ for product model $p$ at time $t$.
@@ -32,6 +32,9 @@ $z_{ii't}$ indicates whether the flow from $i$ to $i'$ is authorized
 ### Lost Orders
 - $lo^{PR}_{mpt}$ lost order for retrofit of vehicle model $p$ at market segment $m$ at time period $t$
 - $lo^{EoLP}_{mpt}$ lost order for EoL treatement of vehicle model $p$ at market segment $m$ at time period $t$
+
+### EoL Orders
+$dm^{EoLP}_{mpt}$ EoL treatement demand of vehicle model $p$ at market segment $m$ at time period $t$ 
 
 ## Parameters
 *Maximal Capacity:*
@@ -62,7 +65,7 @@ $z_{ii't}$ indicates whether the flow from $i$ to $i'$ is authorized
 - $D_{max}$ the maximal distance between a market segment and a retrofit center that the market segment can be served by the retrofit center
 
 *Activation Footprint*
-- $af_{i}$ facility activation footprint for $i\in \{R\cup V \cup L \cup F\}$
+- $af_{j}$ facility activation footprint for $j\in J$
 
 *Unit Operation Footprint*
 - $uofMN_{f}, uofRMN_{f}$ unit operation footprint for manufacturing, remanufacturing at factory $f$
@@ -74,7 +77,7 @@ $z_{ii't}$ indicates whether the flow from $i$ to $i'$ is authorized
 
 *Demand*
 - $dm_{mpt}$ retrofit demand of vehicle model $p$ at market segment $m$ at time period $t$
-- $dmEoLP_{mpt}$ EoL treatement demand of vehicle model $p$ at market segment $m$ at time period $t$ - this would be generated from $dm_{mpt}$
+- $pb^{EoL}_{\\tau}$ the percentage of retrofitted vehicles at end-of-life after $\\tau$ years (modeled by the Weibull distribution)
 
 *Transportation*
 - $pl^{TR}$ payload capacity per transport unit in kg
@@ -103,7 +106,7 @@ Transport Carbon Footprint = Number of transport units \* Footprint per transpor
 Lost Orders Carbon Footprint = Volume of lost orders \* lost order footprint per product
 
 ### Facility Activation Carbon Footprint
-$\sum_{i \in \{R\cup V \cup L \cup F\}} x_{it_{last}}\cdot af_{i}$
+$\sum_{j \in J} x_{jt_{last}}\cdot af_{j}$
 
 ### Operation Carbon Footprint 
 Factories (F) : manufacturing operation footprint + remanufacturing operation footprint
@@ -121,14 +124,20 @@ $\sum_{t \in T} \sum_{p \in P} \sum_{v \in V}  \left(\sum_{l\in L}q_{vlpt}^{RU} 
 ### Transport Carbon Footprint (same as evaluation model)
 The sum of footprint for transport unit flows, retrofitted vehicles flows, and flows of vehicles to be retrofitted
 $\sum_{p\in P}\sum_{t\in T}\left(\sum_{(i,i')\in I^2 \&i\\neq i'}q_{ii't}^{TR} \cdot tf^{TR} \cdot d_{ii'} + \sum_{(m,r)\in M\\times R}q_{mrpt}^{PR} \cdot utf^{PR} \cdot d_{mr} + \sum_{(r,m)\in R\\times M}q_{rmpt}^{RP} \cdot utf^{RP} \cdot d_{rm} + \sum_{(m,r)\in M\\times R}q_{mrpt}^{EoLP} \cdot utf^{RP}\cdot d_{mr}\\right)$
+
 ### Carbon Footprint for lost orders (same as evaluation model)
-$\sum_{t\in T}\left(\sum_{p\in P}(\sum_{m \in M}lo_{mpt}^{PR} \cdot lof^{PR}_p + \sum_{m\in M}lo_{mpt}^{EoLP}\cdot lof_p^{EoLP})\\right)$
+$\sum_{t\in T}\sum_{p\in P}\sum_{m \in M}(lo_{mpt}^{PR} \cdot lof^{PR}_p + lo_{mpt}^{EoLP}\cdot lof_p^{EoLP})$
 
 ## Constraints
+### Calculation of EoL recovery demand
+$d^{EoLP}_{mp1} = 0 \quad \\forall m\in M, \\forall p\in P$
+
+$d^{EoLP}_{mpt} = \sum_{\\tau\in[1,t-1]}(\sum_{r\in R}q_{mrp\\tau}^{PR}) \cdot pb_{t-\\tau} - \sum_{\\tau\in[1, t-1]}d_{mp\\tau}^{EoLP} \quad \\forall m\in M, \\forall p\in P, \\forall t\in [2,|T|]$
+
 ### Demand fulfillment for retrofit and EoL products (same as evaluation model)
 $\sum_{r \in R} q^{PR}_{mrpt} = dm_{mpt} - lo_{mpt} \quad \\forall m \in M, \\forall p \in P, \\forall t \in T$
 
-$\sum_{r \in R} q^{EoLP}_{mrpt} = dmEoLP_{mpt} - loEoLP_{mpt} \quad \\forall m \in M, \\forall p \in P, \\forall t \in T$
+$\sum_{r \in R} q^{EoLP}_{mrpt} = dm^{EoLP}_{mpt} - lo^{EoLP}_{mpt} \quad \\forall m \in M, \\forall p \in P, \\forall t \in T$
 
 ### Calculation of transport unit flows (same as evaluation model)
 $\sum_{p\in P}\left( (q_{ii'pt}^{RU}+q_{ii'pt}^{EoLRU})\cdot w^{RU} + q_{ii'pt}^{EoLPa}\cdot w^{EoLPa} \\right)\leq q^{TR}_{ii't}\cdot pl^{TR} \cdot fr^{TR} \quad \\forall t \in T, \\forall (i,i')\in I^2 \& i\\neq i'$
@@ -184,23 +193,19 @@ $\sum_{l \in L}q^{RU}_{vlpt} + \sum_{f\in F}q^{EoLPa}_{vfpt}\leq \sum_{r\in R}q^
 ### Allocation constraints
 Flow can only exist when the path is authorized
 
-$q_{ii'pt}^{RU}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
+$q_{ii't}^{TR}\leq Z\cdot z_{jj't} \quad \\forall (j,j')\in J^2 \& j\\neq j',  \\forall t \in T$
 
-$q_{ii'pt}^{PR}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
+$q_{mrpt}^{RP}\leq Z\cdot z_{mrt} \quad \\forall (m,r)\in (M\\times R),  \\forall t \in T$
 
-$q_{ii'pt}^{RP}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
+$q_{mrpt}^{EoLP}\leq Z\cdot z_{mrt} \quad \\forall (m,r)\in (M\\times R),  \\forall t \in T$
 
-$q_{ii'pt}^{EoLP}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
+The paths are authorized only if the sites are open at the two ends
 
-$q_{ii'pt}^{EoLRU}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
+$z_{ii't}\leq x_{it} + x_{i't} -1$
 
-$q_{ii'pt}^{EoLPa}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
+Each factory send parts to a designated logistics node
 
-$q_{ii'pt}^{TR}\leq Z\cdot z_{ii't} \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t \in T$
-
-Each logistics node receives supplies exclusively from a designated factory
-
-$\sum_{f\in F}z_{flt} = 1 \quad \\forall l\in L, \\forall t\in T$
+$\sum_{l\in L}z_{flt} = 1 \quad \\forall f\in F, \\forall t\in T$
 
 $z_{flt} = z_{fl(t+1)} \quad \\forall f\in F, \\forall l\in L, \\forall t\in T\\backslash\{|T|\}$
 
@@ -222,15 +227,15 @@ $\sum_{v\in V}z_{vft} = 1 \quad \\forall f\in F, \\forall t\in T$
 
 $z_{vft} = z_{vf(t+1)} \quad \\forall v\in V, f\in F, \\forall t\in T\\backslash\{|T|\}$
 
-Each logistics node receives items from a specific recovery center
+Each recovery center send items to a designated logistics node
 
-$\sum_{v\in V}z_{vlt} = 1 \quad \\forall l\in L, \\forall t\in T$
+$\sum_{l\in L}z_{vlt} = 1 \quad \\forall v\in V, \\forall t\in T$
 
-$z_{vlt} = z_{vl(t+1)} \quad \\forall v\in V, l\in F, \\forall t\in T\\backslash\{|T|\}$
+$z_{vlt} = z_{vl(t+1)} \quad \\forall v\in V, \\forall l\in L, \\forall t\in T\\backslash\{|T|\}$
 
 ### Openning constraints
 
-$x_{it}\leq x_{i(t+1)} \quad \\forall t\in\{1,2, ..., max(T)-1\}, \\forall i \in \{F\cup L\cup R\cup V\}$
+$x_{jt}\leq x_{j(t+1)} \quad \\forall t\in\{1,2, ..., max(T)-1\}, \\forall j \in J$
 
 ### Distance constraints
 $z_{mrt}\leq \mathbf{1}_{\{d_{rm}\leq D_{max}\}} \quad \\forall r\in R, \\forall m\in M$
@@ -244,7 +249,7 @@ $lo^{PR}_{mpt}, lo^{EoLP}_{mpt} \geq 0 \quad \\forall m\in M, \\forall p\in P, \
 '''
 
 with open('parameters.pkl', 'rb') as f:
-    M, P, T, demand, demand_eol, dist, maxcapMN, maxcapRMN, maxcapH, maxcapR, maxcapDP, maxcapRF, maxcapDRU, molMN, molRMN, molH, molR, molDP, molRF, molDRU, uofMN, uofRMN, uofH, uofR, uofDP, uofRF, uofDRU, wRU, wEoLPa, pl_TR, tf_TR, fr_TR, utf_PR, utf_RP, lof_PR, lof_EoLP, af, Z, D_max = pickle.load(f).values()
+    M, P, T, demand, pb_eol, dist, maxcapMN, maxcapRMN, maxcapH, maxcapR, maxcapDP, maxcapRF, maxcapDRU, molMN, molRMN, molH, molR, molDP, molRF, molDRU, uofMN, uofRMN, uofH, uofR, uofDP, uofRF, uofDRU, wRU, wEoLPa, pl_TR, tf_TR, fr_TR, utf_PR, utf_RP, lof_PR, lof_EoLP, af, Z, D_max = pickle.load(f).values()
 
 # Create a Gurobi model
 model = Model("IntegratedModel")
@@ -255,6 +260,7 @@ R = M.apply(lambda x: f"{x}R")
 V = M.apply(lambda x: f"{x}V")
 M = M.apply(lambda x: f"{x}M")
 I = pd.concat([F, L, R, V, M])
+J = pd.concat([F, L, R, V])
 
 # Decision variables
 
@@ -262,18 +268,29 @@ xf = model.addVars(F, T, vtype=GRB.BINARY, name="xf")
 xl = model.addVars(L, T, vtype=GRB.BINARY, name="xl")
 xr = model.addVars(R, T, vtype=GRB.BINARY, name="xr")
 xv = model.addVars(V, T, vtype=GRB.BINARY, name="xv")
-z = model.addVars(I, I, T, vtype=GRB.BINARY, name="z")
 
-q_RU = model.addVars(I, I, P, T, name="qRU")
-q_PR = model.addVars(I, I, P, T, name="qPR")
-q_RP = model.addVars(I, I, P, T, name="qRP")
-q_EoLP = model.addVars(I, I, P, T, name="qEoLP")
-q_EoLRU = model.addVars(I, I, P, T, name="qEoLRU")
-q_EoLPa = model.addVars(I, I, P, T, name="qEoLPa")
-q_TR = model.addVars(I, I, T, name="qTR")
+# q_RU = model.addVars(I, I, P, T, name="qRU")
+q_RU = model.addVars(F, L, P, T, name="qRU") 
+q_RU.update(model.addVars(L, R, P, T, name="qRU"))
+q_RU.update(model.addVars(V, L, P, T, name="qRU"))
+q_PR = model.addVars(M, R, P, T, name="qPR")
+q_RP = model.addVars(R, M, P, T, name="qRP")
+q_EoLP = model.addVars(M, R, P, T, name="qEoLP")
+q_EoLRU = model.addVars(R, V, P, T, name="qEoLRU")
+q_EoLPa = model.addVars(V, F, P, T, name="qEoLPa")
+q_TR = model.addVars(F, L, T, vtype=GRB.INTEGER, name="qTR")
+q_TR.update(model.addVars(L, R, T, vtype=GRB.INTEGER ,name="qTR"))
+q_TR.update(model.addVars(R, V, T, vtype=GRB.INTEGER ,name="qTR"))
+q_TR.update(model.addVars(V, F, T, vtype=GRB.INTEGER ,name="qTR"))
+q_TR.update(model.addVars(V, L, T, vtype=GRB.INTEGER ,name="qTR"))
+z = model.addVars(q_TR.keys(), vtype=GRB.BINARY, name="z")
+z.update(model.addVars(M, R, T, vtype=GRB.BINARY, name="z"))
 
 lo_PR = model.addVars(M, P, T, name="loPR")
 lo_EoLP = model.addVars(M, P, T, name="loEoLP")
+
+dm_EoLP = model.addVars(M, P, T, name="dmEoLP")
+
 
 # Objective function
 # Facility Activation Carbon Footprint
@@ -284,7 +301,7 @@ operation_cf_factory = quicksum(quicksum(quicksum(quicksum(q_EoLPa[v, f, p, t] *
 
 operation_cf_logistics = quicksum(quicksum(quicksum((quicksum(q_RU[l, r, p, t] for r in R)) * uofH for l in L) for p in P) for t in T)
 
-operation_cf_retrofit = quicksum(quicksum(quicksum(quicksum(q_RP[r, m, p, t] for m in M) * uofR + quicksum(q_EoLRU[v, r, p, t] for v in V) * uofDP for r in R) for p in P) for t in T)
+operation_cf_retrofit = quicksum(quicksum(quicksum(quicksum(q_RP[r, m, p, t] for m in M) * uofR + quicksum(q_EoLRU[r, v, p, t] for v in V) * uofDP for r in R) for p in P) for t in T)
 
 operation_cf_recovery = quicksum(quicksum(quicksum(quicksum(q_RU[v, l, p, t] * uofRF for l in L) + quicksum(q_EoLPa[v, f, p, t] * uofDRU for f in F) for v in V) for p in P) for t in T)
 
@@ -292,30 +309,51 @@ operation_carbon_footprint = operation_cf_factory + operation_cf_logistics + ope
 
 
 # Transport Carbon Footprint
-transport_cf = quicksum(quicksum(quicksum(q_TR[i, i1, t]*tf_TR*dist.loc[i[:-1], i1[:-1]] for i in I for i1 in I if i != i1) + quicksum(q_PR[m, r, p, t]*utf_PR*dist.loc[m[:-1], r[:-1]] for m in M for r in R) + quicksum(q_RP[r, m, p, t]*utf_RP*dist.loc[r[:-1], m[:-1]] for r in R for m in M) + quicksum(q_EoLP[m, r, p, t]*utf_RP*dist.loc[m[:-1], r[:-1]] for m in M for r in R) for t in T) for p in P)
+transport_cf_TR = quicksum(quicksum(q_TR[i,i1,t] * tf_TR * dist.loc[i[:-1], i1[:-1]] for i in F for i1 in L) + quicksum(q_TR[i,i1,t] * tf_TR * dist.loc[i[:-1], i1[:-1]] for i in L for i1 in R) + quicksum(q_TR[i,i1,t] * tf_TR * dist.loc[i[:-1], i1[:-1]] for i in R for i1 in V) + quicksum(q_TR[i,i1,t] * tf_TR * dist.loc[i[:-1], i1[:-1]] for i in V for i1 in F) + quicksum(q_TR[i,i1,t] * tf_TR * dist.loc[i[:-1], i1[:-1]] for i in V for i1 in L) for t in T)
+
+transport_cf = transport_cf_TR + quicksum(quicksum(quicksum(q_PR[m, r, p, t]*utf_PR*dist.loc[m[:-1], r[:-1]] for m in M for r in R) + quicksum(q_RP[r, m, p, t]*utf_RP*dist.loc[r[:-1], m[:-1]] for r in R for m in M) + quicksum(q_EoLP[m, r, p, t]*utf_RP*dist.loc[m[:-1], r[:-1]] for m in M for r in R) for t in T) for p in P)
 
 # Lost Orders Carbon Footprint
 lost_orders_cf = quicksum(lo_PR[m, p, t]*lof_PR + lo_EoLP[m, p, t]*lof_EoLP for m in M for p in P for t in T)
 
 objective = facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf
-
-# model.setObjective(objective, GRB.MINIMIZE)
-model.setObjective(lost_orders_cf, GRB.MINIMIZE)
+model.setObjective(objective, GRB.MINIMIZE)
 
 # Constraints
+# Calculation of EoL recovery demand
+for m in M:
+    for p in P:
+        for t in T:
+            if t == T[0]:
+                model.addConstr(dm_EoLP[m, p, t] == 0, name="EoL_demand_calculation_t0")
+            else:
+                model.addConstr(dm_EoLP[m, p, t] == quicksum((quicksum(q_PR[m, r, p, tau] for r in R)) * pb_eol[t-tau] - dm_EoLP[m, p, tau] for tau in range(1, t)), name="EoL_demand_calculation")
+                                
 # Demand fulfillment for retrofit and EoL products
 for m in M:
     for p in P:
         for t in T:
             model.addConstr(quicksum(q_PR[m, r, p, t] for r in R) == demand.loc[(m, p), t] - lo_PR[m, p, t], name="demand_fulfillment_PR")
-            model.addConstr(quicksum(q_EoLP[m, r, p, t] for r in R)== demand_eol.loc[(m, p), t] - lo_EoLP[m, p, t], name="demand_fulfillment_EoLP")
+            model.addConstr(quicksum(q_EoLP[m, r, p, t] for r in R)== dm_EoLP[m, p, t] - lo_EoLP[m, p, t], name="demand_fulfillment_EoLP")
 
 # Calculation of transport unit flows
 for t in T:
-    for i in I:
-        for i1 in I:
-            if i != i1:
-                model.addConstr(quicksum((q_RU[i, i1, p, t] + q_EoLRU[i, i1, p, t])*wRU + q_EoLPa[i, i1, p, t]*wEoLPa for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    for i in F:
+        for i1 in L:
+                model.addConstr(quicksum(q_RU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    for i in L:
+        for i1 in R:
+                model.addConstr(quicksum(q_RU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    for i in V:
+        for i1 in L:
+                model.addConstr(quicksum(q_RU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    for i in R:
+        for i1 in V:
+                model.addConstr(quicksum(q_EoLRU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    for i in V:
+        for i1 in F:
+                model.addConstr(quicksum(q_EoLPa[i, i1, p, t] *wEoLPa for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    
 
 # Capacity constraints
 # factory
@@ -364,10 +402,11 @@ for r in R:
         for t in T:
             model.addConstr(quicksum(q_RU[l, r, p, t] for l in L) == quicksum(q_PR[m, r, p, t] for m in M), name="flow_conservation_retrofit")
 
-for m in M:
-    for p in P:
-        for t in T:
-            model.addConstr(q_RP[r, m, p, t] == q_PR[m, r, p, t], name="flow_conservation_retrofit_product")
+for r in R: 
+    for m in M:
+        for p in P:
+            for t in T:
+                model.addConstr(q_RP[r, m, p, t] == q_PR[m, r, p, t], name="flow_conservation_retrofit_product")
 
 for r in R:
     for p in P:
@@ -381,48 +420,83 @@ for v in V:
 
 # Allocation constraints
 for t in T:
-    for i in I:
-        for i1 in I:
-            if i != i1:
-                model.addConstr(q_RU[i, i1, p, t] <= Z*z[i, i1, t], name="allocation_RU")
-                model.addConstr(q_PR[i, i1, p, t] <= Z*z[i, i1, t], name="allocation_PR")
-                model.addConstr(q_RP[i, i1, p, t] <= Z*z[i, i1, t], name="allocation_RP")
-                model.addConstr(q_EoLP[i, i1, p, t] <= Z*z[i, i1, t], name="allocation_EoLP")
-                model.addConstr(q_EoLRU[i, i1, p, t] <= Z*z[i, i1, t], name="allocation_EoLRU")
-                model.addConstr(q_EoLPa[i, i1, p, t] <= Z*z[i, i1, t], name="allocation_EoLPa")
-                model.addConstr(q_TR[i, i1, t] <= Z*z[i, i1, t], name="allocation_TR")
+    for j in F:
+        for j1 in L:
+            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
+    for j in L:
+        for j1 in R:
+            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
+    for j in R:
+        for j1 in V:
+            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
+    for j in V:
+        for j1 in F:
+            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
+    for j in V:
+        for j1 in L:
+            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
 
-for l in L:
-    for t in T:
-        model.addConstr(quicksum(z[l, f, t] for f in F) == 1, name="logistics_factory_allocation")
-    for f in F:
-        for t in T[:-1]:
-            model.addConstr(z[l, f, t] == z[l, f, t+1], name="logistics_factory_allocation_time")
 
-for r in R:
+for t in T:
+    for m in M:
+        for r in R:
+            model.addConstr(q_RP[r, m, p, t] <= Z*z[m, r, t], name="allocation_RP")
+            model.addConstr(q_EoLP[m, r, p, t] <= Z*z[m, r, t], name="allocation_EoLP")
+
+for i, i_prime, t in z.keys():
+    if i in F.values:
+        xi_t = xf[i, t]
+    elif i in L.values:
+        xi_t = xl[i, t]
+    elif i in R.values:
+        xi_t = xr[i, t]
+    elif i in V.values:
+        xi_t = xv[i, t]
+
+    if i_prime in F.values:
+        xi_prime_t = xf[i_prime, t]
+    elif i_prime in L.values:
+        xi_prime_t = xl[i_prime, t]
+    elif i_prime in R.values:
+        xi_prime_t = xr[i_prime, t]
+    elif i_prime in V.values:
+        xi_prime_t = xv[i_prime, t]
+
+    # Add the constraint
+    model.addConstr(z[i, i_prime, t] <= xi_t)
+    model.addConstr(z[i, i_prime, t] <= xi_prime_t)
+
+for f in F:
     for t in T:
-        model.addConstr(quicksum(z[r, l, t] for l in L) == 1, name="retrofit_logistics_allocation")
+        model.addConstr(quicksum(z[f, l, t] for l in L) <= 1, name="logistics_factory_allocation")
     for l in L:
         for t in T[:-1]:
-            model.addConstr(z[r, l, t] == z[r, l, t+1], name="retrofit_logistics_allocation_time")
+            model.addConstr(z[f, l, t] == z[f, l, t+1], name="logistics_factory_allocation_time")
 
 for r in R:
     for t in T:
-        model.addConstr(quicksum(z[r, v, t] for v in V) == 1, name="retrofit_recovery_allocation")
+        model.addConstr(quicksum(z[l, r, t] for l in L) <= 1, name="retrofit_logistics_allocation")
+    for l in L:
+        for t in T[:-1]:
+            model.addConstr(z[l, r, t] == z[l, r, t+1], name="retrofit_logistics_allocation_time")
+
+for r in R:
+    for t in T:
+        model.addConstr(quicksum(z[r, v, t] for v in V) <= 1, name="retrofit_recovery_allocation")
     for v in V:
         for t in T[:-1]:
             model.addConstr(z[r, v, t] == z[r, v, t+1], name="retrofit_recovery_allocation_time")
 
 for f in F:
     for t in T:
-        model.addConstr(quicksum(z[v, f, t] for v in V) == 1, name="factory_recovery_allocation")
+        model.addConstr(quicksum(z[v, f, t] for v in V) <= 1, name="factory_recovery_allocation")
     for v in V:
         for t in T[:-1]:
             model.addConstr(z[v, f, t] == z[v, f, t+1], name="factory_recovery_allocation_time")
 
-for l in L:
+for v in V:
     for t in T:
-        model.addConstr(quicksum(z[v, l, t] for v in V) == 1, name="logistics_recovery_allocation")
+        model.addConstr(quicksum(z[v, l, t] for l in L) <= 1, name="logistics_recovery_allocation")
     for v in V:
         for t in T[:-1]:
             model.addConstr(z[v, l, t] == z[v, l, t+1], name="logistics_recovery_allocation_time")
@@ -449,9 +523,9 @@ for r in R:
             for t in T:
                 model.addConstr(z[m, r, t] == 0, name="distance_constraint")
 
-model.optimize()
+if st.button("Optimize"):
+    model.optimize()
 st.write(demand)
-st.write(demand_eol)
 df_result = pd.DataFrame(columns=["Type", "Value"])
 if model.status == GRB.OPTIMAL:
     st.write("Optimal solution found with total cost", model.objVal)

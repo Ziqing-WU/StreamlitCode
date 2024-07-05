@@ -9,7 +9,7 @@ In this page, a standard test dataset in Occitanie Region will be detailed, whic
 
 '''
 
-pop = st.slider("Select communes with population more than", min_value=10000, max_value=300000, step=1000, value=30000)
+pop = st.slider("Select communes with population more than", min_value=10000, max_value=300000, step=1000, value=100000)
 dataframe = get_communes_by_population(pop)
 st.write(dataframe, len(dataframe))
 fig = px.scatter_mapbox(dataframe, 
@@ -28,7 +28,12 @@ st.plotly_chart(fig)
 dist = pd.DataFrame(index=dataframe["COM"], columns=dataframe["COM"])
 for i in dist.index:
     for j in dist.columns:
-        dist.loc[i, j] = haversine(dataframe.loc[dataframe["COM"]==i, "Latitude"].values[0], dataframe.loc[dataframe["COM"]==i, "Longitude"].values[0], dataframe.loc[dataframe["COM"]==j, "Latitude"].values[0], dataframe.loc[dataframe["COM"]==j, "Longitude"].values[0])
+        calc = haversine(dataframe.loc[dataframe["COM"]==i, "Latitude"].values[0], dataframe.loc[dataframe["COM"]==i, "Longitude"].values[0], dataframe.loc[dataframe["COM"]==j, "Latitude"].values[0], dataframe.loc[dataframe["COM"]==j, "Longitude"].values[0])
+        if calc == 0:
+            dist.loc[i, j] = 0.1
+        else:
+            dist.loc[i, j] = calc
+
 
 st.write("Distance matrix is:", dist)
 
@@ -43,8 +48,10 @@ M = dataframe["COM"]
 '''
 # Product models to be considered
 '''
-P = ["Fiat 500", "Renault Clio 3"]
-st.write("The following vehicles will be considered: Fiat 500, Renault Clio 3.")
+# P = ["Fiat 500", "Renault Clio 3"]
+P = ["Fiat 500"]
+percentage_p = [0.2]
+# st.write("The following vehicles will be considered: Fiat 500, Renault Clio 3.")
 
 grid1, grid2 = np.meshgrid(M,P)
 index = pd.MultiIndex.from_tuples(list(zip(grid1.flatten(), grid2.flatten())))
@@ -52,12 +59,17 @@ index = pd.MultiIndex.from_tuples(list(zip(grid1.flatten(), grid2.flatten())))
 # The demand for each product in each commune is then calculated as the product of the total demand and the portion of each product.
 demand = pd.DataFrame(index=index, columns=["Demand"])
 for com in M:
-    demand.loc[(com, 'Fiat 500'), "Demand"] = parc_auto.loc[com, "Demand"]*0.2
-    demand.loc[(com, 'Renault Clio 3'), "Demand"] = parc_auto.loc[com, "Demand"]*0.8
+    for p in P:
+        demand.loc[(com, p), "Demand"] = parc_auto.loc[com, "Demand"]*percentage_p[P.index(p)]
+
 
 # Divide the demand into three years, and round down to the nearest integer.
 T = [1, 2, 3]
+# T = [1]
+
 dist_T = [0.2, 0.5, 0.3]
+# dist_T = [1]
+
 for t in T:
     demand[t] = np.floor(demand["Demand"]*dist_T[t-1])
 demand.drop(columns=["Demand"], inplace=True)
@@ -78,12 +90,11 @@ def append_letter_to_first_level_index(df, letter):
 
 demand = append_letter_to_first_level_index(demand, "M")
 st.write(demand)
-demand_eol = demand.copy()
-demand_eol.iloc[:,0] = 0
-demand_eol.iloc[:,1] = np.floor(0.05*demand_eol.iloc[:,1])
-demand_eol.iloc[:,2] = np.floor(0.1*demand_eol.iloc[:,2])
 
-st.write(demand_eol)
+x = np.linspace(1, 30, 29)
+pb_EoL = 1-calculate_cum_survival_function(x)
+
+
 
 maxcapMN = 10000
 maxcapRMN = 2000
@@ -125,11 +136,10 @@ tf_TR = 0.1
 fr_TR = 0.8
 utf_PR = 0.2
 utf_RP = 0.1
-
 lofPR = 500
 lofEoLP = 100
 
-af = pd.Series({'R': 10000, 'V': 50000, 'L': 20000, 'F': 70000})
+af = pd.Series({'R': 100000, 'V': 500000, 'L': 200000, 'F': 700000})
 
 Z = 1000000
 D_max = 40
@@ -139,7 +149,7 @@ data = {
     "P": P,
     "T": T,
     "demand": demand,
-    "demand_eol": demand_eol,
+    "pb_EoL": pb_EoL,
     "dist": dist,
     "maxcapMN": maxcapMN,
     "maxcapRMN": maxcapRMN,

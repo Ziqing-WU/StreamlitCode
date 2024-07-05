@@ -44,6 +44,7 @@ st.header("Evaluation Model")
 - $L$ set of all potential logistics nodes
 - $F$ set of all potential factories
 - $I$ set of all nodes in the network with $I=\{ M \cup R \cup V \cup L \cup F\}$
+- $J$ set of all potential sites with $J=\{ R \cup V \cup L \cup F\}$
 - $P$ set of all product models
 - $T$ set of time periods
 

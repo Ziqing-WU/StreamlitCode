@@ -7,6 +7,8 @@ import plotly.graph_objects as go
 import numpy as np
 import pickle
 from gurobipy import Model, GRB, quicksum
+from scipy.special import gamma
+import matplotlib.pyplot as plt
 
 '''
 Calculate the distance between two points on the Earth's surface with longitude and latitude in degrees
@@ -41,3 +43,13 @@ def create_toc(toc_items=["Hypothesis", "Sets", "Decision Variables", "Parameter
     st.sidebar.title("Table of Contents")
     for item in toc_items:
         st.sidebar.markdown(f"[{item}](#{item.lower().replace(' ', '-')})")
+
+'''
+Calculate the cumulative survival function according to Held et al. 2021
+'''
+
+def calculate_cum_survival_function(a, beta_shape=6, gamma_scale=15.2):
+    gamma_term = gamma(1+1/beta_shape)
+    csf = np.exp((-(a/gamma_scale)**beta_shape) * gamma_term**beta_shape)
+    return csf
+
