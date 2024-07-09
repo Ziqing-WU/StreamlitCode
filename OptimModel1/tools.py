@@ -9,6 +9,9 @@ import pickle
 from gurobipy import Model, GRB, quicksum
 from scipy.special import gamma
 import matplotlib.pyplot as plt
+from itertools import product
+from scipy.integrate import odeint
+
 
 '''
 Calculate the distance between two points on the Earth's surface with longitude and latitude in degrees
@@ -53,3 +56,7 @@ def calculate_cum_survival_function(a, beta_shape=6, gamma_scale=15.2):
     csf = np.exp((-(a/gamma_scale)**beta_shape) * gamma_term**beta_shape)
     return csf
 
+# The differential equation described by the Bass model
+def bass_diff(N, t, p, q, M):
+    dNdt = (p + q * N / M) * (M - N)
+    return dNdt

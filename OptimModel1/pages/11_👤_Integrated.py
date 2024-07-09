@@ -1,251 +1,11 @@
 import sys
 sys.path.append("..")
 from tools import *
-create_toc(["Location", "Decision Variables", "Parameters", "Objective Function", "Constraints", "Implementation"])
 
 st.header("Integrated Model")
 
 '''
-# Location
-## Decision Variables
-### Facility
-*Openness*
-
-- $x_{ft}$ indicates whether factory $f$ is operational in time period $t$ (1 open; 0 closed)
-- $x_{lt}$ indicates whether logistics node $l$ is operational in time period $t$ (1 open; 0 closed)
-- $x_{rt}$ indicates whether retrofit center $r$ is operational in time period $t$ (1 open; 0 closed)
-- $x_{vt}$ indicates whether recovery center $v$ is operational in time period $t$ (1 open; 0 closed)
-
-*Allocation*
-
-$z_{jj't}, (j, j')\in J^2$ indicates whether the flow from $j$ to $j'$ is authorized 
-
-### Flow
-- **Retrofit Units (RU)**:  $q_{ii'pt}^{RU}$  represents the flow of retrofit units from node $i$ to node $i'$ for product model $p$ at time $t$.
-- **Products to be Retrofitted (PR)**:  $q_{ii'pt}^{PR}$  represents the flow of Products to be Retrofitted (PR) from node $i$ to node $i'$ for product model $p$ at time $t$.
-- **Retrofitted Products (RP)**: $q_{ii'pt}^{RP}$ represents the flow of Retrofitted Products (RP) from node $i$ to node $i'$ for product model $p$ at time $t$.
-- **EoL Product (EoLP)**: $q_{ii'pt}^{EoLP}$ represents the flow of EoL Product (EoLP) from node $i$ to node $i'$ for product model $p$ at time $t$.
-- **EoL Retrofit Units (EoLRU)**: $q_{ii'pt}^{EoLRU}$ represents the flow of EoL Retrofit Units (EoLRU) from node $i$ to node $i'$ for product model $p$ at time $t$. 
-- **EoL Parts (EoLPa)**:  $q_{ii'pt}^{EoLPa}$ represents the flow of EoL Parts (EoLPa) from node $i$ to node $i'$ for product model $p$ at time $t$.
-- **Transport Unit (TR)**: $q_{ii't}^{TR}$ represents the flow of transport units from node $i$ to node $i'$ for product model $p$ at time $t$.
-
-### Lost Orders
-- $lo^{PR}_{mpt}$ lost order for retrofit of vehicle model $p$ at market segment $m$ at time period $t$
-- $lo^{EoLP}_{mpt}$ lost order for EoL treatement of vehicle model $p$ at market segment $m$ at time period $t$
-
-### EoL Orders
-$dm^{EoLP}_{mpt}$ EoL treatement demand of vehicle model $p$ at market segment $m$ at time period $t$ 
-
-## Parameters
-*Maximal Capacity:*
-
-- $maxcapMN_{f}$ maximal capacity of manufacturing at factory $f$
-- $maxcapRMN_{f}$ maximal capacity of remanufacturing at factory $f$
-- $maxcapH_{l}$ maximal capacity of handling at logistics node $l$
-- $maxcapR_{r}$ maximal capacity of retrofitting at retrofit center $r$
-- $maxcapDP_{r}$ maximal capacity of disassembling EoL product to retrieve EoL retrofit units at retrofit center $r$
-- $maxcapRF_{v}$ maximal capacity of refurbishing at recovery center $v$
-- $maxcapDRU_{v}$ maximal capacity of disassembling retrofit unit at recovery center $v$
-
-*Minimum Operating Level*
-- $molMN_{f}$ minimum operating level of manufacturing at factory $f$
-- $molRMN_{f}$ minimum operating level of remanufacturing at factory $f$
-- $molH_{l}$ minimum operating level of handling at logistics node $l$
-- $molR_{r}$ minimum operating level of retrofitting at retrofit center $r$
-- $molDP_{r}$ minimum operating level of disassembling EoL product to retrieve EoL retrofit units at retrofit center $r$
-- $molRF_{v}$ minimum operating level of refurbishing at recovery center $v$
-- $molDRU_{v}$ minimum operating level of disassembling retrofit unit at recovery center $v$
-
-*Weight*
-- $w^{RU}$ retrofit unit weight in kg (RU, EoLRU)
-- $w^{EoLPa}$ average weight of EoL Parts (EoLPa)
-
-*Distance*
-- $d_{ii'}$ distance in km from node $i$ to node $i'$ with $(i, i')\in I^2$
-- $D_{max}$ the maximal distance between a market segment and a retrofit center that the market segment can be served by the retrofit center
-
-*Activation Footprint*
-- $af_{j}$ facility activation footprint for $j\in J$
-
-*Unit Operation Footprint*
-- $uofMN_{f}, uofRMN_{f}$ unit operation footprint for manufacturing, remanufacturing at factory $f$
-- $uofH_{l}$ unit operation footprint for handling at logistics node $l$
-- $uofR_{r}$ unit operation footprint for retrofit at retrofit center $r$
-- $uofDP_{r}$ unit operation footprint for deassembling EoL product and retrieve EoL retrofit unit at retrofit center $r$
-- $uofRF_{v}$ unit operation footprint for refurbishing EoL retrofit unit at recovery center $v$
-- $uofDRU_{v}$ unit operation footprint for disassembling retrofit unit to retrive and refurbish EoL parts at recovery center $v$
-
-*Demand*
-- $dm_{mpt}$ retrofit demand of vehicle model $p$ at market segment $m$ at time period $t$
-- $pb^{EoL}_{\\tau}$ the percentage of retrofitted vehicles at end-of-life after $\\tau$ years (modeled by the Weibull distribution)
-
-*Transportation*
-- $pl^{TR}$ payload capacity per transport unit in kg
-- $tf^{TR}$ transportation footprint per transport unit per km
-- $fr^{TR}$ average filling rate per transport unit
-- $utf^{PR}$ average transportation footprint per km for a vehicle to be retrofitted
-- $utf^{RP}$ average transportation footprint per km for a retrofitted vehicle
-
-*Lost order footprint*
-- $lof^{PR}_p$ lost order footprint for retrofit per product for model $p$ 
-- $lof^{EoLP}_p$ lost order footprint for EoL treatement per product for model $p$
-
-$Z$ a large enough number
-
-## Objective Function
-Minimisation
-
-Supply Chain Carbon Footprint = Facility Activation Carbon Footprint + Operation Carbon Footprint + Transport Footprint + Lost Orders Carbon Footprint
-
-Facility Activation Carbon Footprint = Activation Action \*  Activatation Carbon Footprint
-
-Operation Carbon Footprint = Volume \* Unit Operation Footprint
-
-Transport Carbon Footprint = Number of transport units \* Footprint per transport unit per km \* Distance
-
-Lost Orders Carbon Footprint = Volume of lost orders \* lost order footprint per product
-
-### Facility Activation Carbon Footprint
-$\sum_{j \in J} x_{jt_{last}}\cdot af_{j}$
-
-### Operation Carbon Footprint 
-Factories (F) : manufacturing operation footprint + remanufacturing operation footprint
-$\sum_{t \in T} \sum_{p \in P}\sum_{f \in F}\left(\sum_{v \in V} q_{vfpt}^{EoLPa} \cdot uofRMN_{f} + (\sum_{l \in L} q_{flpt}^{RU} - \sum_{v \in V}q_{vfpt}^{EoLPa}) \cdot uofMN_{f} \\right)$ 
-
-Logistics Nodes (L): handling operation footprint
-$\sum_{t \in T}\sum_{p \in P} \sum_{l \in L} \left( \sum_{r \in R} q_{lrpt}^{RU} \cdot uofH_{l}\\right)$
-
-Retrofit Centers (R): retrofit operation footprint and EoL vehicles disassembling footprint 
-$\sum_{t \in T}\sum_{p \in P} \sum_{r \in R}\left(\sum_{m \in M}q^{RP}_{rmpt}\cdot uofR_{r} + \sum_{v \in V}q_{rvpt}^{EoLRU}\cdot uofDP_{r}\\right)$
-
-Recovery Center (V): refurbish footprint and EoL retrofit unit disassembling footprint 
-$\sum_{t \in T} \sum_{p \in P} \sum_{v \in V}  \left(\sum_{l\in L}q_{vlpt}^{RU} \cdot uofRF_{v} + \sum_{f\in F}q_{vfpt}^{EoLPa} \cdot uofDRU_{v} \\right)$
-
-### Transport Carbon Footprint (same as evaluation model)
-The sum of footprint for transport unit flows, retrofitted vehicles flows, and flows of vehicles to be retrofitted
-$\sum_{p\in P}\sum_{t\in T}\left(\sum_{(i,i')\in I^2 \&i\\neq i'}q_{ii't}^{TR} \cdot tf^{TR} \cdot d_{ii'} + \sum_{(m,r)\in M\\times R}q_{mrpt}^{PR} \cdot utf^{PR} \cdot d_{mr} + \sum_{(r,m)\in R\\times M}q_{rmpt}^{RP} \cdot utf^{RP} \cdot d_{rm} + \sum_{(m,r)\in M\\times R}q_{mrpt}^{EoLP} \cdot utf^{RP}\cdot d_{mr}\\right)$
-
-### Carbon Footprint for lost orders (same as evaluation model)
-$\sum_{t\in T}\sum_{p\in P}\sum_{m \in M}(lo_{mpt}^{PR} \cdot lof^{PR}_p + lo_{mpt}^{EoLP}\cdot lof_p^{EoLP})$
-
-## Constraints
-### Calculation of EoL recovery demand
-$d^{EoLP}_{mp1} = 0 \quad \\forall m\in M, \\forall p\in P$
-
-$d^{EoLP}_{mpt} = \sum_{\\tau\in[1,t-1]}(\sum_{r\in R}q_{mrp\\tau}^{PR}) \cdot pb_{t-\\tau} - \sum_{\\tau\in[1, t-1]}d_{mp\\tau}^{EoLP} \quad \\forall m\in M, \\forall p\in P, \\forall t\in [2,|T|]$
-
-### Demand fulfillment for retrofit and EoL products (same as evaluation model)
-$\sum_{r \in R} q^{PR}_{mrpt} = dm_{mpt} - lo_{mpt} \quad \\forall m \in M, \\forall p \in P, \\forall t \in T$
-
-$\sum_{r \in R} q^{EoLP}_{mrpt} = dm^{EoLP}_{mpt} - lo^{EoLP}_{mpt} \quad \\forall m \in M, \\forall p \in P, \\forall t \in T$
-
-### Calculation of transport unit flows (same as evaluation model)
-$\sum_{p\in P}\left( (q_{ii'pt}^{RU}+q_{ii'pt}^{EoLRU})\cdot w^{RU} + q_{ii'pt}^{EoLPa}\cdot w^{EoLPa} \\right)\leq q^{TR}_{ii't}\cdot pl^{TR} \cdot fr^{TR} \quad \\forall t \in T, \\forall (i,i')\in I^2 \& i\\neq i'$
-
-### Capacity and minimum operating level constraints 
-Factory:
-
-*Manufacturing* $x_{ft} \cdot molMN_{ft} \leq \sum_{p\in P}(\sum_{l\in L} q^{RU}_{flpt} - \sum_{v\in V} q^{EoLPa}_{vfpt}) \leq x_{ft} \cdot capMN_{ft} \quad \\forall f \in F, \\forall t \in T$
-
-*Remanufacturing* $x_{ft} \cdot molRMN_{ft} \leq \sum_{p\in P}\sum_{v\in V } q^{EoLPa}_{vfpt} \leq x_{ft} \cdot capRMN_{ft} \quad \\forall f \in F, \\forall t \in T$
-
-Logistics node:
-
-*Handling* $x_{lt} \cdot molH_{lt} \leq \sum_{p\in P}\sum_{r\in R} q^{RU}_{lrpt} \leq x_{lt} \cdot capH_{lt} \quad \\forall l \in L, \\forall t \in T$
-
-Retrofit center:
-
-*Retrofit* $x_{rt} \cdot molR_{rt} \leq \sum_{p\in P}\sum_{m\in M} q^{RP}_{rmpt}\leq x_{rt}\cdot capR_{rt} \quad \\forall r \in R, \\forall t \in T$
-
-*Disassemble EoL Product* $x_{rt} \cdot molDP_{rt} \leq \sum_{p\in P}\sum_{m\in M}q^{EoLP}_{mrpt} \leq x_{rt}\cdot capDP_{rt} \quad \\forall r \in R, \\forall t \in T$
-
-Recovery center:
-
-*Refurbish* $x_{vt}\cdot molRF_{vt} \leq \sum_{p\in P}\sum_{l\in L}q_{vlpt}^{RU}\leq x_{vt}\cdot capRF_{vt}\quad \\forall v \in V, \\forall t \in T$
-
-*Disassemble Retrofit Unit to retrieve and refurbish EoL parts* $x_{vt}\cdot molDRU_{vt} \leq \sum_{p\in P}\sum_{f\in F}q_{vfpt}^{EoLPa}\leq x_{vt}\cdot capDRU_{vt}\quad \\forall v \in V, \\forall t \in T$
-
-### Flow conservation constraints (same as evaluation model)
-All refurbished parts are used in the manufacturing of new retrofit kits
-
-$\sum_{l\in L} q^{RU}_{flpt} \geq \sum_{v\in V} q^{EoLPa}_{vfpt} \quad \\forall f \in F, \\forall p \in P, \\forall t \in T$
-
-For a logistics node, retrofit units that are sending out to retrofit centers or other logistics node are from either factory or recovery center
-
-$\sum_{f \in F} q^{RU}_{flpt} + \sum_{v \in V} q^{RU}_{vlpt}  = \sum_{r \in R} q^{RU}_{lrpt}  \quad \\forall l \in L, \\forall p \in P, \\forall t \in T$
-
-For a retrofit center, the products can only be retrofitted if the retrofit units are acquired 
-
-$\sum_{l \in L} q^{RU}_{lrpt} = \sum_{m \in M} q^{PR}_{mrpt} \quad \\forall r \in R, \\forall p \in P, \\forall t \in T$
-
-For a retrofit center, products to be retrofitted are getting retrofit in the same period
-
-$q^{RP}_{rmpt} = q^{PR}_{mrpt} \quad \\forall r \in R, \\forall m \in M, \\forall p \in P, \\forall t \in T$
-
-For a retrofit center, EoL products being disassembled have EoL retrofit units to be sent to recovery center
-
-$\sum_{m \in M} q^{EoLP}_{mrpt} = \sum_{v \in V}q^{EoLRU}_{rvpt}\quad \\forall r \in R, \\forall p \in P, \\forall t \in T$
-
-For a recovery center, the volume of refurbished parts and refurbished retrofit units should not exceed the volume of End-of-life retrofit units that are taken back
-
-$\sum_{l \in L}q^{RU}_{vlpt} + \sum_{f\in F}q^{EoLPa}_{vfpt}\leq \sum_{r\in R}q^{EoLRU}_{rvpt} \quad \\forall v \in V, \\forall p \in P, \\forall t \in T$
-
-### Allocation constraints
-Flow can only exist when the path is authorized
-
-$q_{ii't}^{TR}\leq Z\cdot z_{jj't} \quad \\forall (j,j')\in J^2 \& j\\neq j',  \\forall t \in T$
-
-$q_{mrpt}^{RP}\leq Z\cdot z_{mrt} \quad \\forall (m,r)\in (M\\times R),  \\forall t \in T$
-
-$q_{mrpt}^{EoLP}\leq Z\cdot z_{mrt} \quad \\forall (m,r)\in (M\\times R),  \\forall t \in T$
-
-The paths are authorized only if the sites are open at the two ends
-
-$z_{ii't}\leq x_{it} + x_{i't} -1$
-
-Each factory send parts to a designated logistics node
-
-$\sum_{l\in L}z_{flt} = 1 \quad \\forall f\in F, \\forall t\in T$
-
-$z_{flt} = z_{fl(t+1)} \quad \\forall f\in F, \\forall l\in L, \\forall t\in T\\backslash\{|T|\}$
-
-Each retrofit center is served solely by a specific logistics node
-
-$\sum_{l\in L}z_{lrt} = 1 \quad \\forall r\in R, \\forall t\in T$
-
-$z_{lrt} = z_{lr(t+1)} \quad \\forall l\in L, \\forall r\in R, \\forall t\in T\\backslash\{|T|\}$
-
-Each retrofit center can only interact with a designated recovery center
-
-$\sum_{v\in V}z_{rvt} = 1 \quad \\forall r\in R, \\forall t\in T$
-
-$z_{rvt} = z_{rv(t+1)} \quad \\forall r\in R, v\in V, \\forall t\in T\\backslash\{|T|\}$
-
-Each factory receives items from a specific recovery center
-
-$\sum_{v\in V}z_{vft} = 1 \quad \\forall f\in F, \\forall t\in T$
-
-$z_{vft} = z_{vf(t+1)} \quad \\forall v\in V, f\in F, \\forall t\in T\\backslash\{|T|\}$
-
-Each recovery center send items to a designated logistics node
-
-$\sum_{l\in L}z_{vlt} = 1 \quad \\forall v\in V, \\forall t\in T$
-
-$z_{vlt} = z_{vl(t+1)} \quad \\forall v\in V, \\forall l\in L, \\forall t\in T\\backslash\{|T|\}$
-
-### Openning constraints
-
-$x_{jt}\leq x_{j(t+1)} \quad \\forall t\in\{1,2, ..., max(T)-1\}, \\forall j \in J$
-
-### Distance constraints
-$z_{mrt}\leq \mathbf{1}_{\{d_{rm}\leq D_{max}\}} \quad \\forall r\in R, \\forall m\in M$
-
-### Non-negativity constraints
-$q_{ii'pt}^{RU}, q_{ii'pt}^{PR}, q_{ii'pt}^{RP}, q_{ii'pt}^{EoLP}, q_{ii'pt}^{EoLRU}, q_{ii'pt}^{EoLPa} q_{ii't}^{TR} \geq 0 \quad \\forall (i,i')\in I^2 \& i\\neq i', \\forall p\in P, \\forall t\in T$
-
-$lo^{PR}_{mpt}, lo^{EoLP}_{mpt} \geq 0 \quad \\forall m\in M, \\forall p\in P, \\forall t\in T$
-
-## Implementation
+# Implementation
 '''
 
 with open('parameters.pkl', 'rb') as f:
@@ -291,7 +51,6 @@ lo_EoLP = model.addVars(M, P, T, name="loEoLP")
 
 dm_EoLP = model.addVars(M, P, T, name="dmEoLP")
 
-
 # Objective function
 # Facility Activation Carbon Footprint
 facility_activation_carbon_footprint = quicksum(xf[f, T[-1]] * af["F"] for f in F) + quicksum(xl[l, T[-1]] * af["L"] for l in L) + quicksum(xr[r, T[-1]] * af["R"] for r in R) + quicksum(xv[v, T[-1]] * af["V"] for v in V)
@@ -334,19 +93,26 @@ for m in M:
     for p in P:
         for t in T:
             model.addConstr(quicksum(q_PR[m, r, p, t] for r in R) == demand.loc[(m, p), t] - lo_PR[m, p, t], name="demand_fulfillment_PR")
-            model.addConstr(quicksum(q_EoLP[m, r, p, t] for r in R)== dm_EoLP[m, p, t] - lo_EoLP[m, p, t], name="demand_fulfillment_EoLP")
+            model.addConstr(quicksum(q_EoLP[m, r, p, t] for r in R) == dm_EoLP[m, p, t] - lo_EoLP[m, p, t], name="demand_fulfillment_EoLP")
 
 # Calculation of transport unit flows
+index_pairs = [
+    (F, L),
+    (L, R),
+    (V, L)
+]
+
+# Iterate over the time periods
 for t in T:
-    for i in F:
-        for i1 in L:
-                model.addConstr(quicksum(q_RU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
-    for i in L:
-        for i1 in R:
-                model.addConstr(quicksum(q_RU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
-    for i in V:
-        for i1 in L:
-                model.addConstr(quicksum(q_RU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
+    # Iterate over the defined index pairs
+    for (source, target) in index_pairs:
+        # Loop over all index pairs (i, i1) from source and target
+        for i, i1 in product(source, target):
+            # Add constraint to the model
+            model.addConstr(
+                quicksum(q_RU[i, i1, p, t] * wRU for p in P) <= q_TR[i, i1, t] * pl_TR * fr_TR,
+                name="transport_unit_flow"
+            )
     for i in R:
         for i1 in V:
                 model.addConstr(quicksum(q_EoLRU[i, i1, p, t] *wRU for p in P) <= q_TR[i, i1, t]*pl_TR*fr_TR, name="transport_unit_flow")
@@ -419,22 +185,25 @@ for v in V:
             model.addConstr(quicksum(q_RU[v, l, p, t] for l in L) + quicksum(q_EoLPa[v, f, p, t] for f in F) <= quicksum(q_EoLRU[r, v, p, t] for r in R), name="flow_conservation_recovery")
 
 # Allocation constraints
+index_pairs1 = [
+    (F, L),
+    (L, R),
+    (R, V),
+    (V, F),
+    (V, L)
+]
+
+# Iterate over the time periods
 for t in T:
-    for j in F:
-        for j1 in L:
-            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
-    for j in L:
-        for j1 in R:
-            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
-    for j in R:
-        for j1 in V:
-            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
-    for j in V:
-        for j1 in F:
-            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
-    for j in V:
-        for j1 in L:
-            model.addConstr(q_TR[j, j1, t] <= Z*z[j, j1, t], name="allocation_TR")
+    # Iterate over the defined index pairs
+    for (source, target) in index_pairs1:
+        # Loop over all index pairs (j, j1) from source and target
+        for j, j1 in product(source, target):
+            # Add constraint to the model
+            model.addConstr(
+                q_TR[j, j1, t] <= Z * z[j, j1, t],
+                name="allocation_TR"
+            )
 
 
 for t in T:
@@ -452,6 +221,8 @@ for i, i_prime, t in z.keys():
         xi_t = xr[i, t]
     elif i in V.values:
         xi_t = xv[i, t]
+    else:
+        xi_t = 1
 
     if i_prime in F.values:
         xi_prime_t = xf[i_prime, t]
@@ -461,6 +232,8 @@ for i, i_prime, t in z.keys():
         xi_prime_t = xr[i_prime, t]
     elif i_prime in V.values:
         xi_prime_t = xv[i_prime, t]
+    else:
+        xi_prime_t = 1
 
     # Add the constraint
     model.addConstr(z[i, i_prime, t] <= xi_t)

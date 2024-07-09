@@ -9,7 +9,7 @@ In this page, a standard test dataset in Occitanie Region will be detailed, whic
 
 '''
 
-pop = st.slider("Select communes with population more than", min_value=10000, max_value=300000, step=1000, value=100000)
+pop = st.slider("Select communes with population more than", min_value=10000, max_value=300000, step=1000, value=50000)
 dataframe = get_communes_by_population(pop)
 st.write(dataframe, len(dataframe))
 fig = px.scatter_mapbox(dataframe, 
@@ -30,7 +30,7 @@ for i in dist.index:
     for j in dist.columns:
         calc = haversine(dataframe.loc[dataframe["COM"]==i, "Latitude"].values[0], dataframe.loc[dataframe["COM"]==i, "Longitude"].values[0], dataframe.loc[dataframe["COM"]==j, "Latitude"].values[0], dataframe.loc[dataframe["COM"]==j, "Longitude"].values[0])
         if calc == 0:
-            dist.loc[i, j] = 0.1
+            dist.loc[i, j] = 3
         else:
             dist.loc[i, j] = calc
 
@@ -64,10 +64,19 @@ for com in M:
 
 
 # Divide the demand into three years, and round down to the nearest integer.
-T = [1, 2, 3]
+T = [i for i in range(1, 21)]
+p = 0.03
+q = 0.38
+# Initial condition: no adopters at time t=0
+N0 = [0]
+# Solve the differential equation
+N = odeint(bass_diff, N0, [i for i in range(1, 22)], args=(p, q, 1)).flatten()
+
+
 # T = [1]
 
-dist_T = [0.2, 0.5, 0.3]
+dist_T = np.diff(N, prepend=0)[1:]
+
 # dist_T = [1]
 
 for t in T:
@@ -105,12 +114,12 @@ maxcapRF = 10000
 maxcapDRU = 1000
 
 # molMN = 100
-# molRMN = 20
+# molRMN = 0
 # molH = 150
 # molR = 10
-# molDP = 2
+# molDP = 0
 # molRF = 100
-# molDRU = 10
+# molDRU = 0
 
 molMN = 0
 molRMN = 0
