@@ -6,8 +6,13 @@ st.header("Together Model")
 # Implementation
 '''
 
-with open('parameters.pkl', 'rb') as f:
+file_name = 'parameters.pkl'
+with open(file_name, 'rb') as f:
     M, P, T, demand, pb_eol, dist, maxcapMN, maxcapRMN, maxcapH, maxcapR, maxcapDP, maxcapRF, maxcapDRU, molMN, molRMN, molH, molR, molDP, molRF, molDRU, uofMN, uofRMN, uofH, uofR, uofDP, uofRF, uofDRU, wRU, wEoLPa, pl_TR, tf_TR, fr_TR, utf_PR, utf_RP, lof_PR, lof_EoLP, af, of, Z, D_max = pickle.load(f).values()
+current_time = datetime.now().strftime("%Y%m%d%H%M")
+destination_path = "experimentations/together" + current_time + "/"
+os.makedirs(destination_path, exist_ok=True)
+os.rename(file_name, destination_path+file_name)
 
 model = Model("Together")
 
@@ -68,8 +73,8 @@ transport_cf = transport_cf_TR + quicksum(quicksum(quicksum(q_PR[m, r, p, t]*utf
 # Lost Orders Carbon Footprint
 lost_orders_cf = quicksum(lo_PR[m, p, t]*lof_PR + lo_EoLP[m, p, t]*lof_EoLP for m in M for p in P for t in T)
 
-objective = facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf
-model.setObjective(objective, GRB.MINIMIZE)
+# objective = facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf
+model.setObjective(facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf, GRB.MINIMIZE)
 
 # Constraints
 # Calculation of EoL recovery demand
@@ -143,6 +148,8 @@ for v in V:
         model.addConstr(quicksum(quicksum(q_RU[v, l, p, t] for l in L) for p in P) <= xv[v, t]*maxcapRF, name="recovery_center_capacity refurbish cap")
         model.addConstr(quicksum(quicksum(q_EoLPa[v, f, p, t] for f in F) for p in P) >= xv[v, t]*molDRU, name="recovery_center_capacity disassemble mol")
         model.addConstr(quicksum(quicksum(q_EoLPa[v, f, p, t] for f in F) for p in P) <= xv[v, t]*maxcapDRU, name="recovery_center_capacity disassemble cap")
+        model.addConstr(quicksum(q_TR[r, v, t] for r in R) <= xv[v, t]*Z,  name="recovery_center openning")
+
 
 # Flow conservation constraints
 for f in F:
@@ -174,7 +181,7 @@ for r in R:
 for v in V:
     for p in P:
         for t in T:
-            model.addConstr(quicksum(q_RU[v, l, p, t] for l in L) + quicksum(q_EoLPa[v, f, p, t] for f in F) <= quicksum(q_EoLRU[r, v, p, t] for r in R), name="flow_conservation_recovery")
+            model.addConstr(quicksum(q_RU[v, l, p, t] for l in L) + quicksum(q_EoLPa[v, f, p, t] for f in F) == quicksum(q_EoLRU[r, v, p, t] for r in R), name="flow_conservation_recovery")
 
 for t in T:
     for m in M:
@@ -199,18 +206,21 @@ for r in R:
             for t in T:
                 model.addConstr(z[m, r, t] == 0, name="distance_constraint")
 
-if st.button("Optimize"):
-    model.optimize()
+set_param_optim(model, destination_path)
+model.optimize()
 st.write(demand)
-df_result = pd.DataFrame(columns=["Type", "Value"])
-if model.status == GRB.OPTIMAL:
+if model.status == GRB.OPTIMAL or model.status == GRB.TIME_LIMIT or model.status == GRB.INTERRUPTED:
     st.write("Optimal solution found with total cost", model.objVal)
+    optim_obj = {"Model Status": model.status, "Total footprint": model.objVal, "Activation": facility_activation_carbon_footprint.getValue(), "Operation": operation_carbon_footprint.getValue(), "Transport": transport_cf.getValue(), "Lost orders": lost_orders_cf.getValue()}
+    df_result = pd.DataFrame(optim_obj.items(), columns=["Type", "Value"])
     for v in model.getVars():
         if v.x > 0:
             list_v = [v.varName, v.x]
             new_row = pd.Series(list_v, index=df_result.columns)
             df_result = pd.concat([df_result, new_row.to_frame().T], ignore_index=True)
+    st.write(df_result)
+    df_result.to_csv(destination_path+"results.csv", index=True)
 else:
     st.write("No solution found")
-st.write(df_result)
+
 

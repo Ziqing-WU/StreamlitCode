@@ -155,6 +155,8 @@ for v in V:
         model.addConstr(quicksum(quicksum(q_RU[v, l, p, t] for l in L) for p in P) <= xv[v, t]*maxcapRF, name="recovery_center_capacity refurbish cap")
         model.addConstr(quicksum(quicksum(q_EoLPa[v, f, p, t] for f in F) for p in P) >= xv[v, t]*molDRU, name="recovery_center_capacity disassemble mol")
         model.addConstr(quicksum(quicksum(q_EoLPa[v, f, p, t] for f in F) for p in P) <= xv[v, t]*maxcapDRU, name="recovery_center_capacity disassemble cap")
+        model.addConstr(quicksum(q_TR[r, v, t] for r in R) <= xv[v, t]*Z,  name="recovery_center openning")
+
 
 # Flow conservation constraints
 for f in F:
@@ -186,7 +188,7 @@ for r in R:
 for v in V:
     for p in P:
         for t in T:
-            model.addConstr(quicksum(q_RU[v, l, p, t] for l in L) + quicksum(q_EoLPa[v, f, p, t] for f in F) <= quicksum(q_EoLRU[r, v, p, t] for r in R), name="flow_conservation_recovery")
+            model.addConstr(quicksum(q_RU[v, l, p, t] for l in L) + quicksum(q_EoLPa[v, f, p, t] for f in F) == quicksum(q_EoLRU[r, v, p, t] for r in R), name="flow_conservation_recovery")
 
 # Allocation constraints
 index_pairs1 = [
@@ -293,12 +295,12 @@ for r in R:
             for t in T:
                 model.addConstr(z[m, r, t] == 0, name="distance_constraint")
 
-
+set_param_optim(model, destination_path)
 model.optimize()
 st.write(demand)
-if model.status == GRB.OPTIMAL:
+if model.status == GRB.OPTIMAL or model.status == GRB.TIME_LIMIT or model.status == GRB.INTERRUPTED:
     st.write("Optimal solution found with total cost", model.objVal)
-    optim_obj = {"Total footprint": model.objVal, "Activation": facility_activation_carbon_footprint.getValue(), "Operation": operation_carbon_footprint.getValue(), "Transport": transport_cf.getValue(), "Lost orders": lost_orders_cf.getValue()}
+    optim_obj = {"Model Status": model.status, "Total footprint": model.objVal, "Activation": facility_activation_carbon_footprint.getValue(), "Operation": operation_carbon_footprint.getValue(), "Transport": transport_cf.getValue(), "Lost orders": lost_orders_cf.getValue()}
     df_result = pd.DataFrame(optim_obj.items(), columns=["Type", "Value"])
     for v in model.getVars():
         if v.x > 0:

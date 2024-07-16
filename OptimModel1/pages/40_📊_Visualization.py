@@ -17,7 +17,7 @@ with open(f"{folder_path}/parameters.pkl", "rb") as f:
     params = pickle.load(f)
 st.write(params)
 
-st.header("Result Anaylsis")
+st.header("Result Analysis")
 
 
 px.set_mapbox_access_token("pk.eyJ1Ijoiend1LTE5IiwiYSI6ImNsNnc3a3Z3czA1dHUzY28xZjd6dzlvZDgifQ.BiY-VgoH8CR03_PckJLbpA")
@@ -82,10 +82,12 @@ st.plotly_chart(px.bar(dm_PR, x="Year", y="Value", color="Commune", title="Deman
 
 dl_PR["Type"] = "Delivered"
 lo_PR["Type"] = "Lost"
+lo_PR = lo_PR.astype({"Year": int})
 PR = pd.concat([dl_PR, lo_PR])
 PR = PR.merge(df_occitanie, left_on="M", right_on="COM")
 st.plotly_chart(px.bar(PR, x="Year", y="Value", color="Type", hover_data="Commune", title="Fulfillment for retrofit"))
-st.plotly_chart(px.scatter_mapbox(PR, lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of retrofit fulfillment"))
+year_PR = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_PR")
+st.plotly_chart(px.scatter_mapbox(PR[PR["Year"]==year_PR], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of retrofit fulfillment"))
 
 
 # Demand for EoL products
@@ -121,7 +123,8 @@ EoLP = EoLP.merge(df_occitanie, left_on="M", right_on="COM")
 
 st.plotly_chart(px.bar(EoLP, x="Year", y="Value", color="Type", hover_data='Commune', title="Fulfillment for EoL products"))
 
-st.plotly_chart(px.scatter_mapbox(EoLP, lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of EoL fulfillment"))
+year_EoLP = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_EoLP")
+st.plotly_chart(px.scatter_mapbox(EoLP[EoLP["Year"]==str(year_EoLP)], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of EoL fulfillment"))
 
 
 '''
@@ -241,7 +244,7 @@ qPR["Product"] = qPR["Type"].str.extract(r'q[A-Za-z]+\[\d+[A-Z],\d+[A-Z],(.*?),'
 qPR["Year"] = qPR["Type"].str.extract(r'q[A-Za-z]+\[\d+[A-Z],\d+[A-Z],.*?,(\d+)\]')
 qPR = qPR.merge(df_occitanie.add_suffix("_M"), left_on="M", right_on="COM_M")
 qPR = qPR.merge(df_occitanie.add_suffix("_R"), left_on="R", right_on="COM_R")
-st.write(qPR)
+# st.write(qPR)
 year_qPR = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_qPR")
 m = folium.Map(location=[center_lat, center_lon], zoom_start=7, height=height_map)
 qPR_year = qPR[qPR["Year"]==str(year_qPR)]
