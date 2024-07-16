@@ -63,7 +63,6 @@ for com in M:
         demand.loc[(com, p), "Demand"] = parc_auto.loc[com, "Demand"]*percentage_p[P.index(p)]
 
 
-# Divide the demand into three years, and round down to the nearest integer.
 T = [i for i in range(1, 21)]
 p = 0.03
 q = 0.38
@@ -148,10 +147,11 @@ utf_RP = 0.1
 lofPR = 500
 lofEoLP = 100
 
-af = pd.Series({'R': 100000, 'V': 500000, 'L': 200000, 'F': 700000})
+af = pd.Series({'R': 600000, 'V': 500000, 'L': 300000, 'F': 700000})
+of = pd.Series({'R': 5000, 'V': 25000, 'L': 10000, 'F': 35000})
 
 Z = 1000000
-D_max = 40
+D_max = 200
 
 data = {
     "M": M,
@@ -191,9 +191,11 @@ data = {
     "lofPR": lofPR,
     "lofEoLP": lofEoLP,
     "af": af,
+    "of": of,
     "Z": Z,
     "D_max": D_max
 }
+
 
 
 with open("parameters.pkl", "wb") as f:

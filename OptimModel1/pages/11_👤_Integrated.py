@@ -8,8 +8,13 @@ st.header("Integrated Model")
 # Implementation
 '''
 
-with open('parameters.pkl', 'rb') as f:
-    M, P, T, demand, pb_eol, dist, maxcapMN, maxcapRMN, maxcapH, maxcapR, maxcapDP, maxcapRF, maxcapDRU, molMN, molRMN, molH, molR, molDP, molRF, molDRU, uofMN, uofRMN, uofH, uofR, uofDP, uofRF, uofDRU, wRU, wEoLPa, pl_TR, tf_TR, fr_TR, utf_PR, utf_RP, lof_PR, lof_EoLP, af, Z, D_max = pickle.load(f).values()
+file_name = 'parameters.pkl'
+with open(file_name, 'rb') as f:
+    M, P, T, demand, pb_eol, dist, maxcapMN, maxcapRMN, maxcapH, maxcapR, maxcapDP, maxcapRF, maxcapDRU, molMN, molRMN, molH, molR, molDP, molRF, molDRU, uofMN, uofRMN, uofH, uofR, uofDP, uofRF, uofDRU, wRU, wEoLPa, pl_TR, tf_TR, fr_TR, utf_PR, utf_RP, lof_PR, lof_EoLP, af, of, Z, D_max = pickle.load(f).values()
+current_time = datetime.now().strftime("%Y%m%d%H%M")
+destination_path = "experimentations/integrated" + current_time + "/"
+os.makedirs(destination_path, exist_ok=True)
+os.rename(file_name, destination_path+file_name)
 
 # Create a Gurobi model
 model = Model("IntegratedModel")
@@ -29,7 +34,6 @@ xl = model.addVars(L, T, vtype=GRB.BINARY, name="xl")
 xr = model.addVars(R, T, vtype=GRB.BINARY, name="xr")
 xv = model.addVars(V, T, vtype=GRB.BINARY, name="xv")
 
-# q_RU = model.addVars(I, I, P, T, name="qRU")
 q_RU = model.addVars(F, L, P, T, name="qRU") 
 q_RU.update(model.addVars(L, R, P, T, name="qRU"))
 q_RU.update(model.addVars(V, L, P, T, name="qRU"))
@@ -75,8 +79,8 @@ transport_cf = transport_cf_TR + quicksum(quicksum(quicksum(q_PR[m, r, p, t]*utf
 # Lost Orders Carbon Footprint
 lost_orders_cf = quicksum(lo_PR[m, p, t]*lof_PR + lo_EoLP[m, p, t]*lof_EoLP for m in M for p in P for t in T)
 
-objective = facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf
-model.setObjective(objective, GRB.MINIMIZE)
+# objective = facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf
+model.setObjective(facility_activation_carbon_footprint + operation_carbon_footprint + transport_cf + lost_orders_cf, GRB.MINIMIZE)
 
 # Constraints
 # Calculation of EoL recovery demand
@@ -260,13 +264,6 @@ for r in R:
         for t in T[:-1]:
             model.addConstr(z[r, v, t] == z[r, v, t+1], name="retrofit_recovery_allocation_time")
 
-for f in F:
-    for t in T:
-        model.addConstr(quicksum(z[v, f, t] for v in V) <= 1, name="factory_recovery_allocation")
-    for v in V:
-        for t in T[:-1]:
-            model.addConstr(z[v, f, t] == z[v, f, t+1], name="factory_recovery_allocation_time")
-
 for v in V:
     for t in T:
         model.addConstr(quicksum(z[v, l, t] for l in L) <= 1, name="logistics_recovery_allocation")
@@ -296,20 +293,23 @@ for r in R:
             for t in T:
                 model.addConstr(z[m, r, t] == 0, name="distance_constraint")
 
-if st.button("Optimize"):
-    model.optimize()
+
+model.optimize()
 st.write(demand)
-df_result = pd.DataFrame(columns=["Type", "Value"])
 if model.status == GRB.OPTIMAL:
     st.write("Optimal solution found with total cost", model.objVal)
+    optim_obj = {"Total footprint": model.objVal, "Activation": facility_activation_carbon_footprint.getValue(), "Operation": operation_carbon_footprint.getValue(), "Transport": transport_cf.getValue(), "Lost orders": lost_orders_cf.getValue()}
+    df_result = pd.DataFrame(optim_obj.items(), columns=["Type", "Value"])
     for v in model.getVars():
         if v.x > 0:
             list_v = [v.varName, v.x]
             new_row = pd.Series(list_v, index=df_result.columns)
             df_result = pd.concat([df_result, new_row.to_frame().T], ignore_index=True)
+    st.write(df_result)
+    df_result.to_csv(destination_path+"results.csv", index=True)
 else:
     st.write("No solution found")
-st.write(df_result)
+
 
 
 
