@@ -128,7 +128,7 @@ molDP = 0
 molRF = 0
 molDRU = 0
 
-uofMN = 5
+uofMN = 2538.2
 uofRMN = 2
 uofH = 1
 uofR = 1.5  
@@ -144,8 +144,8 @@ tf_TR = 0.1
 fr_TR = 0.8
 utf_PR = 0.2
 utf_RP = 0.1
-lofPR = 500
-lofEoLP = 100
+lofPR = 5000
+lofEoLP = 1000
 
 af = pd.Series({'R': 100000, 'V': 500000, 'L': 200000, 'F': 700000})
 of = pd.Series({'R': 5000, 'V': 25000, 'L': 10000, 'F': 35000})

@@ -210,7 +210,7 @@ m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_folium, height
 for index, row in qTR_year.iterrows():
     origin = [row['Latitude_O'], row['Longitude_O']]
     destination = [row['Latitude_D'], row['Longitude_D']]
-    weight = row['Value']/max_qTR*20
+    weight = row['Value']/max_qTR*50
     if show_icon:
         folium.Marker(
             location=[row['Latitude_O'], row['Longitude_O']],
@@ -284,5 +284,6 @@ folium_static(m)
 ## Footprint Decomposition
 '''
 
-decomp = df_results.iloc[1:5,:]
-st.plotly_chart(px.treemap(decomp, path=['Type'], values='Value', title="Footprint decomposition"))
+decomp = df_results.iloc[2:6,:]
+decomp["Percentage"] = decomp["Value"]/df_results.iloc[1,1]
+st.plotly_chart(px.treemap(decomp, path=['Type'], values='Percentage', title="Footprint decomposition"))

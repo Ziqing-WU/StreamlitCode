@@ -67,9 +67,10 @@ def bass_diff(N, t, p, q, M):
     dNdt = (p + q * N / M) * (M - N)
     return dNdt
 
-def set_param_optim(m, folder_path):
+def set_param_optim(m, folder_path, timelimit = None):
     m.Params.MIPGap = 0.01
-    m.Params.TimeLimit = 600
+    if timelimit:
+        m.Params.TimeLimit = 600
     m.setParam('OutputFlag', True)  # True to enable, False to disable
     log_file_path = os.path.join(folder_path, 'model.log')
     m.setParam('LogFile', log_file_path)
