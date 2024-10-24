@@ -8,34 +8,66 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-st.set_page_config(
-    layout='wide',
-    initial_sidebar_state='auto',
-    page_icon='🌔'
-)
+"""
+# Total Addressable Market
+"""
 
-vehicle_engine_type = ['DIESEL', 'LPG', 'PETROL', 'E85', 'NG-BIOMETHANE', 'ELECTRIC', 'PETROL-ELECTRIC', 'DIESEL-ELECTRIC', 'HYDROGEN']
-category = ['L', 'M1', 'N1']
+current_year = 2024
+file_path = r"C:\Users\zwu\Documents\Data\Vehicle\data_precharged\vehicle_list_TM.csv"
+csv_file = st.file_uploader(
+    'Upload a file of the existing product information representing the total market'
+    )
+
+@st.cache_data
+def load_vehicle_data(path):
+    df = pd.read_csv(path, low_memory=False, dtype=object)
+    return df
+
+if not csv_file:
+    df = load_vehicle_data(file_path)
+else:
+    df = pd.read_csv(csv_file, low_memory=False, dtype=object)
+
+st.write(df.head(),df["categorie_vehicule"].unique())
+
+vehicle_engine_type =  df["energie"].unique().tolist()
+vehicle_engine_type_default = ["ES","GO"]
+vehicle_engine_type_dict = {
+    "Abbreviation": ["ES", "EL", "GO", "EG", "FE", "EN", "EE", "GG", "FL", "GN", "EH", "GH", "GP", "GL", "AC", "GE", "FG", "GA", "PE", "FN", "HE", "FH", "GQ", "EQ"],
+    "Description": [
+        "Gasoline", "Electric", "Diesel", "Dual-fuel Gasoline-LPG", "Super Ethanol", 
+        "Dual-fuel Gasoline-Natural Gas", "Hybrid Electric (rechargeable)", "Gasogene-Diesel Mix", 
+        "Super Ethanol-Electric (rechargeable)", "Natural Gas", "Hybrid Electric (non-rechargeable)", 
+        "Hybrid Diesel-Electric (non-rechargeable)", "Liquefied Petroleum Gas (LPG)", 
+        "Hybrid Diesel-Electric (rechargeable)", "Air Compressed", "Gasogene-Gasoline Mix", 
+        "Dual-fuel Super Ethanol-LPG", "Gasogene", "Monofuel LPG-Electric (rechargeable)", 
+        "Dual-fuel Super Ethanol-Natural Gas", "Hybrid Electric (rechargeable)", 
+        "Hybrid Super Ethanol (non-rechargeable)", "Diesel-Natural Gas Mix (dual fuel) and Electric (non-rechargeable)", 
+         "Dual-fuel Gasoline-LPG and Electric (non-rechargeable)"
+    ]
+}
+category = df["categorie_vehicule"].unique().tolist()
+category_default = ['M1', 'N1']
 locations = ['31555', '45234', '45273', '75056', '81004']
 car_bodies = ['AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'BA', 'BB', 'BC', 'BD', 'BE', 'BX', 'CA', 'CB', 'CD', 'CE', 'CF', 'CG', 'CH', 'CI', 'CJ', 'CX', 'DA', 'DB', 'DC', 'DE']
 norm_euro = ['Euro ' + str(i) for i in range(1,8)]
 colors = ['Black', 'Silver', 'Gray', 'Blue']
 
-current_year = st.radio('Show Market Situation in Year ', [2022, 2023, 2024, 2025, 2026], horizontal=True)
 
 st.write("Filter 1: Legislative and Technical Constraints")
 with st.expander("Legislative Constraints"):
     category_leg = st.multiselect('Vehicle Category', category, category)
+    st.write("For the explanation on vehicle types, refer to: https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006074228/LEGISCTA000006129091/2016-04-15/")
     min_age_leg = st.slider('Vehicle Minimum Age',
                     min_value=0,
                     max_value=20,
                     value=5
                     )
-    engine_type_leg = st.multiselect('Type of Fuel or Energy Source', vehicle_engine_type, default=['PETROL', 'DIESEL', 'LPG', 'E85', 'NG-BIOMETHANE', 'PETROL-ELECTRIC', 'DIESEL-ELECTRIC', 'HYDROGEN'])
+    engine_type_tech = st.multiselect('Type of Fuel or Energy Source', vehicle_engine_type, default = vehicle_engine_type_default,key=1)
     geo_leg = st.multiselect('Geographical Coverage', locations, locations)
 
 with st.expander("Technical Constraints"):
-    engine_type_tech = st.multiselect('Type of Fuel or Energy Source', vehicle_engine_type, default = ['PETROL', 'DIESEL'])
+    engine_type_tech = st.multiselect('Type of Fuel or Energy Source', vehicle_engine_type, default = vehicle_engine_type_default,key=2)
     category_tech = st.multiselect('Vehicle Category', category, default=['M1', 'N1'])
     min_age_tech, max_age_tech = st.select_slider('Vehicle Age Range',
                                                     options=np.array([i for i in range(1,21)]),
@@ -89,13 +121,10 @@ st.markdown(
     """
 )
 
-file_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting\Vehicles\Simulated_car_registration\vehicle_list_TM.csv"
-df = pd.read_csv(file_path, index_col=0)
 
-@st.cache
+@st.cache_data
 def apply_filters(df):
     # Age
-    df['Age']= current_year - df['Year']
     df = df[(df['Age']>min_age)]
     # Engine Type
     df = df[df['Ft'].isin(engine_type)]

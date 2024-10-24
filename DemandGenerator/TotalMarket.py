@@ -12,6 +12,8 @@ from datetime import date
 import csv
 import sys
 
+current_year = 2024
+
 @st.cache_data
 def create_map():
     # This file comes from the geoservices product Admin Express COG 2022
@@ -46,6 +48,8 @@ st.markdown(
 
 if not csv_file:
     df = load_vehicle_data()
+else:
+    df = pd.read_csv(csv_file, low_memory=False, dtype=object)
 
 """
 ## Select Columns of Interests from the Dataset
@@ -97,7 +101,8 @@ if st.button("Visualize datetime data"):
         # Extract year to make it easier to visualize
         df_selected['year'] = df_selected[col].dt.year
         plt.figure(figsize=(10,5))
-        sns.histplot(df_selected['year'], bins=len(df_selected['year'].unique()), kde=False)
+        num_bins = int(df_selected['year'].max() - df_selected['year'].min())
+        sns.histplot(df_selected['year'], bins=num_bins, kde=False)
         plt.title(f"Distribution of {col} by Year")
         st.pyplot(plt)
 
@@ -127,7 +132,7 @@ geo_filters = st.multiselect(
 fig = px.bar(group_brand_df[group_brand_df['code_commune_titulaire'].isin(geo_filters)], x='type_version_variante', y='Num Vehicles', hover_data=['code_commune_titulaire', 'Num Vehicles','marque'])
 fig.update_xaxes(range=(-.5,15))
 df_merged = df_merged[df_merged.index.isin(geo_filters)]
-fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2}, color_continuous_scale='Greys')
+fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="carto-positron", zoom=5.5, center = {"lat": 44, "lon": 2}, color_continuous_scale='Greys')
 
 col1, col2 = st.columns([1, 1.5])
 
@@ -142,7 +147,6 @@ st.markdown(
     ## Vehicle Age & Brand
     """
 )
-current_year = 2024
 df_selected['Age']= current_year - df_selected['date_premiere_immatriculation'].dt.year
 group_age_df = df_selected.groupby(['Age', 'marque', 'type_version_variante']).count().iloc[:, :1]
 group_age_df.columns.values[0] = 'Num Vehicles'
@@ -208,6 +212,9 @@ def convert_df(df):
 
 csv = convert_df(df_selected)
 
-st.write("which can be downloaded")
-st.download_button("here", csv, mime='text/csv', file_name='vehicle_list_TM.csv')
+st.download_button("Download", csv, mime='text/csv', file_name='vehicle_list_TM.csv')
 st.write("*N.B.* In this step, the relevant columns of the dataset of existing products have been selected. The previous two sections Geographical Distribution and Vehicle Age & Brand are only for data understanding which won't change the output of this page.")
+st.write("After downloading the data for the Total Market. Let's continue with Total Addressable Market (TAM).")
+if st.button("Go to TAM"):
+    st.switch_page("TotalAddressableMarket.py")
+
