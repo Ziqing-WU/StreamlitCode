@@ -1,18 +1,15 @@
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import glob
-import os
-import streamlit as st
-import geopandas as gpd
-import plotly.express as px
-import plotly.graph_objects as go
-import numpy as np
-from datetime import date
-import csv
-import sys
+from config import *
 
-current_year = 2024
+with st.sidebar:
+    """
+    Navigation
+
+    [Total Market](#total-market)
+    - [Select Columns of Interests from the Dataset](#select-columns-of-interests-from-the-dataset)
+    - [Geographical Distribution](#geographical-distribution)
+    - [Vehicle Age & Brand](#vehicle-age-brand)
+    """
+
 
 @st.cache_data
 def create_map():
@@ -21,8 +18,6 @@ def create_map():
     map_df = gpd.read_file(fp)
     # map_df.to_crs(pyproj.CRS.from_epsg(4326), inplace=True)
     return map_df[['INSEE_COM', 'geometry']].set_index('INSEE_COM')
-
-# r';(?!\s)'
 
 @st.cache_data
 def load_vehicle_data():
@@ -42,7 +37,7 @@ csv_file = st.file_uploader(
 
 st.markdown(
     """
-    To show case the use of demand estimation framework, here a dataset on ICE vehicles has been loaded.
+    To showcase the use of the demand estimation framework, a dataset on ICE vehicles has been loaded by default if no data is provided.
     """
 )
 
@@ -60,10 +55,7 @@ options = st.multiselect("Select the columns that you think relevant for estimat
 @st.cache_data
 def select_vehicle_data(df, options):
     df_selected = df[options]
-    df_selected['date_premiere_immatriculation'] = pd.to_datetime(df['date_premiere_immatriculation'], errors='coerce', format='%d/%m/%Y').dt.normalize()
-    to_numeric = ['poids_a_vide_national','cylindree','niv_sonore','co2', 'puissance_net_maxi']
-    for col in to_numeric:
-        df_selected[col] = pd.to_numeric(df_selected[col], errors='coerce')
+    df_selected = change_type(df_selected, ['poids_a_vide_national','cylindree','niv_sonore','co2', 'puissance_net_maxi'])
     return df_selected
 
 df_selected = select_vehicle_data(df, options)
@@ -95,7 +87,6 @@ if st.button("Visualize numerical data"):
         st.pyplot(plt)
 
 if st.button("Visualize datetime data"):
-    st.write(datetime_cols)
     for col in datetime_cols:
         st.subheader(f'Distribution of {col}')
         # Extract year to make it easier to visualize
@@ -105,6 +96,9 @@ if st.button("Visualize datetime data"):
         sns.histplot(df_selected['year'], bins=num_bins, kde=False)
         plt.title(f"Distribution of {col} by Year")
         st.pyplot(plt)
+
+if st.button("Check the null values in the data"):
+    st.write(df_selected.isna().sum())
 
 st.markdown(
     """
@@ -133,7 +127,7 @@ fig = px.bar(group_brand_df[group_brand_df['code_commune_titulaire'].isin(geo_fi
 fig.update_xaxes(range=(-.5,15))
 df_merged = df_merged[df_merged.index.isin(geo_filters)]
 fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="carto-positron", zoom=5.5, center = {"lat": 44, "lon": 2}, color_continuous_scale='Greys')
-
+fig_map.update_traces(marker_line_width=0)
 col1, col2 = st.columns([1, 1.5])
 
 with col1:

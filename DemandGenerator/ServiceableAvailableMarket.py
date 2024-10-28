@@ -1,84 +1,93 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
+from config import *
 
-st.set_page_config(
-    layout='wide',
-    initial_sidebar_state='auto',
-    page_icon='🌓'
-)
 
-locations = ['31555', '45234', '45273', '75056', '81004']
-categorys = ['L', 'M1', 'N1']
-consumers = ['toB', 'toC']
+with st.sidebar:
+    """
+    Navigation
 
-st.write("Filter 2: Strategies and Business Model of the Company")
-
-current_year = st.radio('Show Market Situation in Year ', [2022, 2023, 2024, 2025, 2026], horizontal=True)
-csv_file = st.file_uploader(
-    'Upload a list of models or select all'
-    )
-select_all = st.checkbox("Select all the models")
-geo = st.multiselect('Geographical Coverage', locations, ['31555', '45234', '75056', '81004'])
-category = st.multiselect('Vehicle Category', categorys, 'M1')
-consumer = st.multiselect('Consumer Type', consumers, consumers)
-
-    
-if csv_file is not None:
-    df_model = pd.read_csv(csv_file)
-else:
-    file_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting\Vehicles\Simulated_car_registration\\"+str(current_year)+"_model_list_TAM.csv"
-    df_model = pd.read_csv(file_path)
-
+    [Serviceable Available Market](#serviceable-available-market)
+    - [Apply Filter 2: Strategies and Business Model of the Company](#apply-filter-2-strategies-and-business-model-of-the-company)
+    """
 st.markdown(
     '''
     # Serviceable Available Market
     '''
 )
 
-
 csv_vehicles = st.file_uploader(
-    'Upload list of all vehicles in the total addressable market'
+    'Upload a file of the existing product information representing the total addressable market'
 )
+"A dataset on ICE vehicles, filtered with default settings to represent the total addressable market, has been loaded by default if no data is provided."
 
 if csv_vehicles is not None:
-    df_vehicles = pd.read_csv(csv_vehicles)
+    df_vehicles = pd.read_csv(csv_vehicles, low_memory=False, index_col=0, dtype=object)
 else:
-    file_path_v= r"C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting\Vehicles\Simulated_car_registration\\"+str(current_year)+"_vehicle_list_TAM.csv"
-    df_vehicles = pd.read_csv(file_path_v)
+    file_path_v= precharged_folder + f"\{str(current_year)}_vehicle_list_TAM.csv"
+    df_vehicles = pd.read_csv(file_path_v, low_memory=False, index_col=0, dtype=object)
 
-df_model = df_model[['Mh', 'Cn']]
+df_vehicles = change_type(df_vehicles)
+st.write("Here is a preview of the imported data:", df_vehicles.head(5))
 
-st.write(
-    "Models selected:"
-)
+locations = df_vehicles["code_commune_titulaire"].unique().tolist()
 
-# filter geographical coverage
-df_vehicles = df_vehicles.astype({'Code_commune': str})
-df_vehicles = df_vehicles[df_vehicles['Code_commune'].isin(geo)]
-# filter models
-df_vehicles = df_vehicles.merge(df_model, how='inner', left_on = ['Mh', 'Cn'], right_on=['Mh', 'Cn'])
+categorys = df_vehicles["categorie_vehicule"].unique().tolist()
 
-# group by brand and models
-df_vehicles_gr_model = df_vehicles.groupby(by=['Mh', 'Cn']).count().iloc[:,:1].rename(columns={'Unnamed: 0': 'Num Vehicles'})
-df_vehicles_gr_model = df_vehicles_gr_model.reset_index()
+st.write("""
 
+## Apply Filter 2: Strategies and Business Model of the Company
+**Vehicle Model**
+""")
 
-col2, col3 = st.columns([1,1])
-with col2:
-    st.dataframe(df_model, height=150)
-    st.plotly_chart(
-        px.pie(df_vehicles_gr_model, values='Num Vehicles', names='Mh', title='Distribution of Total Addressable Market among Manufacturers')
+csv_file = st.file_uploader(
+    'Upload a list of models or select all of them'
     )
-with col3:
-    st.metric('Number of Vehicles in the Serviceable Available Market', value=df_vehicles_gr_model['Num Vehicles'].sum())
-    Mh = st.selectbox('Select a manufacturer to visualize the distribution', df_vehicles_gr_model.Mh.unique())
-    df_vehicles_gr_model_filtered = df_vehicles_gr_model[df_vehicles_gr_model['Mh']==Mh]
-    st.plotly_chart(
-        px.pie(df_vehicles_gr_model_filtered, values='Num Vehicles', names='Cn', title='Distribution of Vehicle Models for a Selected Manufacturers')
-    )
+if csv_file is not None:
+    df_model = pd.read_csv(csv_file, low_memory=False, index_col=0, dtype=object)
+else:
+    file_path = precharged_folder + f"\{str(current_year)}_model_list_TAM.csv"
+    df_model = pd.read_csv(file_path, low_memory=False, index_col=0, dtype=object)
 
-@st.cache
+select_all = st.checkbox("Select all the models")
+
+"**Geographical Coverage**"
+
+geo = st.multiselect('INSEE commune codes', locations, [])
+if st.toggle("Upload a list of INSEE commune codes", value=True):
+    csv_codes_INSEE = st.file_uploader("Upload a csv file containing INSEE commune codes")
+    if csv_codes_INSEE is not None:
+        geo = pd.read_csv(csv_codes_INSEE, dtype=object)
+    else:
+        file_path_g = precharged_folder + f"\geo_couv_BM.csv"
+        geo = pd.read_csv(file_path_g, dtype=object)
+st.write("By default, communes with population densities ranging from petites villes to grands centres urbains are selected, representing less than 10% of the commune codes but more than 60% of the population.")
+
+category = st.multiselect('Vehicle Category', categorys, 'M1')
+
+df_model = df_model.index
+
+@st.cache_data
+def apply_filters(df):
+    filter_steps = []
+    filter_steps.append(("Total","", df.shape[0]))
+    # filter geographical coverage
+    if not select_all:
+        df = df[df['code_commune_titulaire'].isin(geo["COM"])]
+    filter_steps.append(("Geo","Total", df.shape[0]))
+    # filter models
+    df = df[df['type_version_variante'].isin(df_model)]
+    filter_steps.append(("Vehicle Model","Geo", df.shape[0]))
+    # filter categories
+    df = df[df['categorie_vehicule'].isin(category)]
+    filter_steps.append(("Category","Vehicle Model", df.shape[0]))
+    return df,filter_steps
+
+df_vehicles, filter_steps = apply_filters(df_vehicles)
+filter_df = pd.DataFrame(filter_steps, columns=["Filter Step", "Previous Step", "Remaining Count"])
+fig = px.funnel(filter_df, y='Filter Step', x='Remaining Count')
+fig.update_layout(xaxis_title='Number of filtered vehicles')
+st.plotly_chart(fig)
+
+@st.cache_data
 def convert_df(df):
     return df.to_csv().encode('utf-8')
 
