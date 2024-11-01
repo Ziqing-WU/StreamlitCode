@@ -159,7 +159,7 @@ st.markdown(
 @st.cache_data
 def create_map():
     # This file comes from the geoservices product Admin Express COG 2022
-    fp = r'C:\Users\zwu\Documents\Data\CommuneShape\COMMUNE_OCCITANIE.shp'
+    fp = rf'{executive_factor_folder}\Ref-1-CodeGeo\COMMUNE_OCCITANIE.shp'
     map_df = gpd.read_file(fp)
     # map_df.to_crs(pyproj.CRS.from_epsg(4326), inplace=True)
     return map_df[['INSEE_COM', 'geometry']].set_index('INSEE_COM')
@@ -249,3 +249,5 @@ with col2:
     The model selection section provides a tool to generate a model list for which the company aims to provide retrofit service. 
     This list will be used in the serviceable addressable market step.
     """
+if st.button("Go to SAM"):
+    st.switch_page("ServiceableAvailableMarket.py")

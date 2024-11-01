@@ -1,5 +1,4 @@
-import streamlit as st
-import graphviz
+from config import *
 
 with st.sidebar:
     """

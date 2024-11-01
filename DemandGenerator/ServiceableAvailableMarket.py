@@ -57,7 +57,7 @@ if st.toggle("Upload a list of INSEE commune codes", value=True):
     if csv_codes_INSEE is not None:
         geo = pd.read_csv(csv_codes_INSEE, dtype=object)
     else:
-        file_path_g = precharged_folder + f"\geo_couv_BM.csv"
+        file_path_g = precharged_folder + rf"\geo_couv_BM.csv"
         geo = pd.read_csv(file_path_g, dtype=object)
 st.write("By default, communes with population densities ranging from petites villes to grands centres urbains are selected, representing less than 10% of the commune codes but more than 60% of the population.")
 
@@ -94,7 +94,8 @@ def convert_df(df):
 csv = convert_df(df_vehicles)
 
 st.download_button('Download the list of vehicles in Service Available Market here', csv, mime='text/csv', file_name=str(current_year)+'_vehicle_list_SAM.csv')
-
+if st.button("Go to DEM"):
+    st.switch_page("MarketShareforSimilarService.py")
 
 
 

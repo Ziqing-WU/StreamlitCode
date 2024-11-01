@@ -1,32 +1,26 @@
-from email.mime import base
-import streamlit as st
-import pandas as pd
-import numpy as np
-import os
-import glob
-import geopandas as gpd
-import pyproj
-import plotly.express as px
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import graphviz
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from sklearn.preprocessing import RobustScaler, StandardScaler, MinMaxScaler, MaxAbsScaler
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from config import *
 
+with st.sidebar:
+    """
+    Navigation
 
-st.set_page_config(
-    layout='wide',
-    initial_sidebar_state='auto',
-    page_icon='🌒'
-)
+    [Demand Estimation for the Market](#demand-estimation-for-the-market)
+    - [Executive Factors](#executive-factors)
+    - [Workflow](#workflow)
+    """
+
+@st.cache_resource
+def find_num_clusters(pca_2d):
+    dict_score = {}
+    for n in range(2,25):
+        kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(pca_2d)
+        dict_score[n] = silhouette_score(pca_2d, labels=kmeans.labels_)
+    return dict_score
 
 st.markdown(
     '''
-    # Market Share for Similar Service
-    ## Introduction
+    # Demand Estimation for the Market
+    ## Executive Factors
     The executive factors presented in the Home page can be quantified by statistics on different geographical or vehicle type level.
     The level of granularity depends on the availability of the data.
     ''')
@@ -97,8 +91,8 @@ with st.expander("Show graphical representation of workflow"):
 
     st.graphviz_chart(pro)
 
-@st.cache
-def create_df_features(folder_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting"):
+@st.cache_data
+def create_df_features(folder_path = executive_factor_folder):
     """
     Convert metadata and data to pandas dataframe
 
@@ -124,7 +118,7 @@ def create_df_features(folder_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Do
         if num not in ['Env-P-2', 'Env-P-3']:
             path = os.path.join(folder_path+"\\"+num+'*'+"\\" + num + '-*.csv')
             file = glob.glob(path)
-            df = pd.read_csv(file[0])
+            df = pd.read_csv(file[0], encoding="utf-8", sep=",", encoding_errors="replace")
             dict_df[num] = df
         else:
             path = os.path.join(folder_path+"\\"+'Env-P-23'+'*'+"\\" + 'Env-P-23' + '-*.csv')
@@ -134,6 +128,7 @@ def create_df_features(folder_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Do
                 dict_df[num] = df.iloc[:, :2]
             else:
                 dict_df[num] = df.iloc[:, [0,2]]
+    
     # change column name
     dict_df['D-C-1'].rename(columns={'PIB par habitant (euros) 2020':'D-C-1'}, inplace=True)
     dict_df['D-EPTE-1'].rename(columns={'Typo degr� densit�': 'D-EPTE-1'}, inplace=True)
@@ -160,8 +155,8 @@ def create_df_features(folder_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Do
 
 df_features, dict_df = create_df_features()
 
-@st.cache
-def create_gdf(level):
+@st.cache_data
+def create_gdf(level, is_occitanie=False):
     """
     Create geopandas dataframe to construct maps
 
@@ -174,9 +169,13 @@ def create_gdf(level):
     ----------
     geopandas dataframe containing geographical forms
     """
-    folder_path = r'C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting\Ref-1-CodeGeo\ADMIN-EXPRESS-COG_3-1__SHP__FRA_WM_2022-04-15\ADMIN-EXPRESS-COG\1_DONNEES_LIVRAISON_2022-04-15\ADECOG_3-1_SHP_WGS84G_FRA\\'
+    folder_path = rf'{executive_factor_folder}\Ref-1-CodeGeo\ADMIN-EXPRESS-COG_3-1__SHP__FRA_WM_2022-04-15\ADMIN-EXPRESS-COG\1_DONNEES_LIVRAISON_2022-04-15\ADECOG_3-1_SHP_WGS84G_FRA\\'
+    suffix=""
+    if is_occitanie:
+        folder_path = rf'{executive_factor_folder}\Ref-1-CodeGeo\\'
+        suffix="_OCCITANIE"
     if level=='COM':
-        fp = folder_path+'COMMUNE.shp'
+        fp = folder_path+'COMMUNE'+suffix+'.shp'
     elif level=='DEP': 
         fp = folder_path+'DEPARTEMENT.shp'
     elif level=='REG':
@@ -189,7 +188,7 @@ def find_geo_names(level):
     """
     Create a dataframe to display the name of each geographical location
     """
-    folder_path = r'C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting\Ref-1-CodeGeo\\'
+    folder_path = rf'{executive_factor_folder}\Ref-1-CodeGeo\\'
     if level=='COM':
         fp = folder_path+'commune_2022.csv'
         column = ['COM', 'NCC', 'DEP', 'REG']
@@ -212,7 +211,7 @@ def find_geo_names(level):
         geo_names.set_index('REG', inplace=True)
     return geo_names
 
-tab1, tab2, tab3 = st.tabs(["City Clustering", "Vehicle Type Clustering", "Adoption Rate Application on SAM"])
+tab1, tab2, tab3 = st.tabs(["City Clustering", "Vehicle Model Clustering", "Adoption Rate Application on SAM"])
 
 with tab1:
     st.markdown(
@@ -220,7 +219,7 @@ with tab1:
         ### Cluster
         '''
     )
-    with st.expander("Click here to see how clustering is done."):
+    with st.expander("Click here to see how clustering is done on cities"):
         st.markdown(
             '''
             #### Visualization
@@ -233,13 +232,13 @@ with tab1:
         gdf = create_gdf(level)
         df_merged = gdf.merge(dict_df[indicator], left_index=True, right_index=True)
 
-        @st.cache
+        @st.cache_data
         def draw_hist(indicator, name):
             hist = px.histogram(dict_df[indicator], x=indicator, title=name)
             return hist
         
-        @st.cache
-        def draw_map(indicator, level, name, df_merged):
+        @st.cache_resource
+        def draw_map(indicator, level, name, _df_merged):
             if (level in ['REG', 'DEP']) or indicator=='E-EPTE-1':
                 fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color=indicator, locations=df_merged.index, mapbox_style="carto-positron", opacity=0.5, zoom=4, center = {"lat": 47, "lon": 2}, color_continuous_scale='Greys', title=name)
             else: 
@@ -308,7 +307,7 @@ with tab1:
         
         agg_df = agg_df(dict_df, df_features, af_busi_base_commune)
         agg_df['E-EPTE-1'] = agg_df['E-EPTE-1'].fillna(0)
-        columns = st.multiselect('Select features to be included', [i for i in dict_df.keys()], ['D-C-1', 'D-EPTE-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'E-C-1', 'E-EPTE-1', 'T-P-1'])
+        columns = st.multiselect('Select features to be included in the following display', [i for i in dict_df.keys()], ['D-C-1', 'D-EPTE-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'E-C-1', 'E-EPTE-1', 'T-P-1'])
         agg_df = agg_df[['NCC', 'DEP', 'REG']+columns]
 
         col1, col2 = st.columns([1,2])
@@ -337,7 +336,7 @@ with tab1:
         st.markdown(
             '''
             #### Scaling and Principal Component Analysis (PCA)
-            Scaling needs to be done before conducting PCA because the variables don't have the same unit.
+            Scaling needs to be done before conducting dimension reduction with PCA because the variables don't have the same unit.
             Here [scaling](https://scikit-learn.org/stable/modules/preprocessing.html#standardization-or-mean-removal-and-variance-scaling) is explained. 
             Several scalers can be chosen in this case, including standard scaler, minmax scaler, maxabs scaler, and robust scaler.
             Then PCA is conducted on the scaled data.
@@ -350,10 +349,17 @@ with tab1:
         nan_agg_df = nan_agg_df[nan_agg_df>0].index
         agg_df.dropna(inplace=True)
         agg_df_d = agg_df.iloc[:, 3:]
+        
+        agg_df_d_melted = agg_df_d.reset_index().melt(id_vars='COM', var_name='category', value_name='value')
+        # st.write(agg_df_d_melted.head())
+        # fig = px.box(agg_df_d_melted, x='category', y='value')
+        # st.plotly_chart(fig)
+
 
         scaler_type = st.selectbox(
-            "Which scaler you like to choose?",
-            ["Standard Scaler", "MinMax Scaler", "MaxAbs Scaler", "Robust Scaler"]
+            "Which scaler would you like to choose?",
+            ["Standard Scaler", "MinMax Scaler", "MaxAbs Scaler", "Robust Scaler"],
+            index=3
         )
 
         if scaler_type == "Standard Scaler":
@@ -419,32 +425,23 @@ with tab1:
             df.index = ['PC'+str(i+1) for i in range(len(df.index))]
             df.columns = agg_df_d.columns
             df
-            nb_dim=int(st.number_input("The number of dimensions to be considered", min_value=1, max_value=7, value=5, step=1, key=1))
+            nb_dim=int(st.number_input("The number of dimensions to be considered", min_value=1, max_value=7, value=2, step=1, key=1))
             st.write("Explained variance ratio of the first ", nb_dim, " dimensions:", pca.explained_variance_ratio_[:nb_dim].sum())
 
-        pca_nd = pd.DataFrame(pca.transform(pca_agg_df_d))
+        pca_nd = pd.DataFrame(pca_agg_df_d)
         pca_nd.columns = ['PC'+str(i) for i in range(1,9)]
         pca_nd.index = agg_df.index
         pca_2d_viz = pca_nd[['PC1', 'PC2']]
-        pca_2d_viz['NCC'] = agg_df['NCC']
-        pca_2d_viz['REG'] = agg_df['REG']
+        pca_2d_viz.loc[:,'NCC'] = agg_df['NCC']
+        pca_2d_viz.loc[:,'REG'] = agg_df['REG']
         st.plotly_chart(px.scatter(pca_2d_viz, x='PC1', y='PC2', hover_data=['NCC', 'REG'], color='REG', title='PCA per Region'))
 
         pca_nd = pca_nd[['PC'+str(i) for i in range(1,nb_dim+1)]]
 
-        @st.cache
-        def find_num_clusters(pca_2d):
-            dict_score = {}
-            for n in range(2,15):
-                kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(pca_2d)
-                pca_2d["class"] = kmeans.labels_
-                dict_score[n] = silhouette_score(pca_2d, labels=pca_2d["class"])
-            return dict_score
-
         dict_score = find_num_clusters(pca_nd)
         st.write("The silhouette scores for each number of clusters are", dict_score)
 
-        n=int(st.number_input("The number of clusters chosen is ", value=8))
+        n=int(st.number_input("The number of clusters chosen is ", value=7))
         kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(pca_nd)
         pca_nd["class"] = kmeans.labels_
         pca_nd['REG'] = agg_df['REG']
@@ -456,7 +453,7 @@ with tab1:
             
         agg_df = agg_df.merge(pca_nd[['class']], left_index=True, right_index=True)
         csv = convert_df(agg_df)
-        st.download_button("Download here", csv, mime='text/csv', file_name='clustering.csv')
+        st.download_button("Download the clustering results here", csv, mime='text/csv', file_name='clustering.csv')
 
 
         st.markdown(
@@ -466,7 +463,7 @@ with tab1:
         )
         
         agg_df = agg_df.astype({"class": str})
-        agg_df_groupby = pd.concat([agg_df.groupby(by = 'class').median(), agg_df_outliers_1st_pca.iloc[:, 3:]])
+        agg_df_groupby = pd.concat([agg_df.groupby(by = 'class').median(numeric_only=True), agg_df_outliers_1st_pca.iloc[:, 3:]])
         st.dataframe(agg_df_groupby)
 
         st.markdown(
@@ -475,29 +472,72 @@ with tab1:
             """
         )
         feature = st.selectbox("Select feature to be visualized", agg_df.columns[3:-1])
-        fig_box_bar = px.box(agg_df, x='class', y=feature, category_orders={'class': [str(i) for i in range(n)]})
         df = agg_df_outliers_1st_pca.iloc[:, 3:]
-        fig_box_bar.add_box(y=df[feature], x=df.index, boxpoints='all')
-        fig_box_bar.update_layout(showlegend=False)
-        st.plotly_chart(fig_box_bar)
+        df.reset_index(inplace=True)
+        df["COM"] = df["COM"].astype(str)
+        x_categories = [str(i) for i in range(n)] + df["COM"].tolist()
+        fig = go.Figure()
+        for i in range(n):
+            fig.add_trace(go.Box(
+                y=agg_df[agg_df['class'] == str(i)][feature],
+                x=[str(i)]*len(agg_df[agg_df['class'] == str(i)]),
+                name=f'Class {str(i)}'
+            ))
+        
+        fig.add_trace(go.Scatter(
+            x=df['COM'],
+            y=df[feature],
+            mode='markers',
+            marker=dict(color='red', size=6, symbol='circle'),
+            name='Outliers',
+            text=df['COM'],  # Add 'code commune' as hover text
+            hovertemplate='Code Commune: %{text}<br>Feature Value: %{y}'
+        ))
+        fig.update_layout(
+            xaxis=dict(
+                title='Class / Code Commune',
+                type='category',
+                categoryorder='array',
+                categoryarray=x_categories
+            ),
+            yaxis_title=feature,
+            showlegend=False
+        )
+        st.plotly_chart(fig)
+        cluster_stats = agg_df.groupby('class')[feature].agg(
+            median='median',
+            Q1=lambda x: x.quantile(0.25),
+            Q3=lambda x: x.quantile(0.75),
+            min='min',
+            max='max'
+        )
+        city_stats = df.groupby('COM')[feature].agg(
+            median='median',
+            Q1=lambda x: x.quantile(0.25),
+            Q3=lambda x: x.quantile(0.75),
+            min='min',
+            max='max'
+        )
+        combined_stats = pd.concat([cluster_stats, city_stats])
+        st.write(combined_stats)
 
+
+    if st.checkbox("Show only Occitanie Region", value=True):
+        gdf = create_gdf("COM", is_occitanie=True)  
+        df_merged = gdf.merge(agg_df, left_index=True, right_index=True)
+    else:
+        gdf = create_gdf("COM")
         df_merged = gdf.merge(agg_df, left_index=True, right_index=True)
 
     fig, ax = plt.subplots(1, figsize=(10,10))
     divider = make_axes_locatable(ax)
-    df_merged.plot(column='class', cmap='tab10', linewidth=1, ax=ax, legend = True)
-    ax.axis('off')
-    st.pyplot(fig)
-
-    fig, ax = plt.subplots(1, figsize=(10,10))
-    divider = make_axes_locatable(ax)
-    df_merged.plot(linewidth=1, ax=ax, legend = True)
+    df_merged.plot(column='class', cmap='tab20', linewidth=1, ax=ax, legend = True)
     ax.axis('off')
     st.pyplot(fig)    
 
     st.markdown(
         """
-        ### Rank clusters
+        ### Rank Clusters
         """)
 
     def create_ahp_graph():
@@ -516,14 +556,11 @@ with tab1:
         ahp.node('c-eco-charging', label='Charging Point Accessibility')
         ahp.node('c-trans-beh', label='Commuting Behavior')
 
-        ahp.node('a-1', 'City Group 1')
-        ahp.node('a-2', 'City Group 2')
-        ahp.node('a-3', 'City Group 3')
-        ahp.node('a-4', 'City Group 4')
-        ahp.node('a-5', 'City Group 5')
-        ahp.node('a-6', 'City Group 6')
-        ahp.node('a-7', 'City Group 7')
-        ahp.node('a-8', 'City Group 8')
+        ahp.node('a-1', 'City Cluster 1')
+        ahp.node('a-2', 'City Cluster 2')
+        ahp.node('a-3', 'City Cluster 3')
+        ahp.node('a-4', 'City Cluster 4')
+
 
         ahp.edge('goal', 'c-demo-GDP')
         ahp.edge('goal', 'c-demo-pd')
@@ -537,7 +574,7 @@ with tab1:
                 
         ahp.edge('goal', 'c-trans-beh')
 
-        for i in [str(i) for i in range(1,9)]:
+        for i in [str(i) for i in range(1,5)]:
             ahp.edge('c-demo-GDP', 'a-'+i)
             ahp.edge('c-demo-pd', 'a-'+i)
 
@@ -554,7 +591,10 @@ with tab1:
     with st.expander("Click here to see how ranking of clusters is done"):
         st.write("Graphical representation of goal, criteria, alternatives")
         st.graphviz_chart(create_ahp_graph())
-        st.write("The preference matrix of criteria is")
+        st.write("""
+        The number of cluster here is for illustrative purpose.
+        The preference matrix of criteria is
+        """)
 
         column1, column2=st.columns([1.5,1])
         with column1:
@@ -578,177 +618,102 @@ with tab1:
                 w=np.sum(pref_matrix, axis=0)
                 norm=np.divide(pref_matrix, w)
                 weights=np.sum(norm, axis=1)/n
-                lambda_ = np.sum(np.divide(np.sum(weights*pref_matrix, axis=1), weights))/n
-                CI = (lambda_-n)/(n-1)
+                weighted_sum = np.dot(pref_matrix, weights)
+                consistency_vector = weighted_sum / weights
+                lambda_max = np.mean(consistency_vector)
+                CI = (lambda_max-n)/(n-1)
                 RI = {1:0, 2:0, 3:0.58, 4:0.9, 5:1.12, 6:1.24, 7:1.32, 8:1.41, 9:1.45, 10:1.49, 11:1.51, 12:1.48, 13:1.56, 14:1.57, 15:1.58}
+                if n > 15:
+                    RI[n] = round(1.98 * (n - 2) / n, 2)
                 CR = CI/RI[n]
                 if CR>0.1:
                     st.warning("Preference matrix used in AHP is inconsistent! CR is "+str(CR))
+                weights.rename("Weight", inplace=True)
                 return weights
         
-            weights=ahp_get_weights(a)
-
-            def construct_weights_df(weights, index):
-                ahp_df = pd.DataFrame(weights)
-                ahp_df.rename({0:"Weight"}, axis=1, inplace=True)
-                ahp_df.index = index
-                return ahp_df
-            weights_df = construct_weights_df(weights, df_a.index)
-            st.write("Weights for each criterion are", weights_df)
+            weights=ahp_get_weights(df_a)
         
         st.write("Now let's evaluate the alternatives")
-        d_c_1=[[1, 3, 1/3, 4, 1, 4, 1/5, 2, 2, 1/3, 1/6, 1/6],
-            [1/3, 1, 1/4, 2, 1/3, 2, 1/6, 1/2, 1/2, 1/4, 1/8, 1/8],
-            [3, 4, 1, 5, 3, 5, 1/4, 4, 4, 1/3, 1/5, 1/5],
-            [1/4, 1/2, 1/5, 1, 1/4, 1, 1/7, 1/3, 1/3, 1/5, 1/9, 1/9],
-            [1, 3, 1/3, 4, 1, 4, 1/5, 2, 2, 1/3, 1/6, 1/6], 
-            [1/4, 1/2, 1/5, 1, 1/4, 1, 1/7, 1/3, 1/3, 1/5, 1/9, 1/9], 
-            [5, 6, 4, 7, 5, 7, 1, 6, 6, 3, 1/3, 1/3], 
-            [1/2, 2, 1/4, 3, 1/2, 3, 1/6, 1, 1, 1/4, 1/7, 1/7],
-            [1/2, 2, 1/4, 3, 1/2, 3, 1/6, 1, 1, 1/4, 1/7, 1/7],
-            [3, 4, 3, 5, 3, 5, 1/3, 4, 4, 1, 1/4, 1/4],
-            [6, 8, 5, 9, 6, 9, 3, 7, 7, 4, 1, 1],
-            [6, 8, 5, 9, 6, 9, 3, 7, 7, 4, 1, 1]
-            ]
-    
-        d_epte_1=[[1, 3, 1/6, 2, 1, 2, 1/3, 1/4, 1/6, 1/6, 1/6, 1/6],
-            [1/3, 1, 1/7, 1/2, 1/3, 1/2, 1/5, 1/6, 1/8, 1/8, 1/8, 1/8],
-            [6, 7, 1, 7, 6, 7, 5, 3, 1/2, 1/2, 1/2, 1/2],
-            [1/2, 2, 1/7, 1, 1/2, 1, 1/4, 1/5, 1/7, 1/7, 1/7, 1/7],
-            [1, 3, 1/6, 2, 1, 2, 1/3, 1/4, 1/6, 1/6, 1/6, 1/6],
-            [1/2, 2, 1/7, 1, 1/2, 1, 1/4, 1/5, 1/7, 1/7, 1/7, 1/7],
-            [3, 5, 1/5, 4, 3, 4, 1, 1/3, 1/5, 1/5, 1/5, 1/5],
-            [4, 6, 1/3, 5, 4, 5, 3, 1, 1/3, 1/3, 1/3, 1/3],
-            [6, 8, 2, 7, 6, 7, 5, 3, 1, 1, 1, 1],
-            [6, 8, 2, 7, 6, 7, 5, 3, 1, 1, 1, 1],
-            [6, 8, 2, 7, 6, 7, 5, 3, 1, 1, 1, 1],
-            [6, 8, 2, 7, 6, 7, 5, 3, 1, 1, 1, 1]]
-    
-        env_p_2=[[1, 1/4, 1/3, 1/4, 4, 1/3, 1/5, 1/5, 5, 5, 3, 1/3],
-            [4, 1, 3, 1, 6, 3, 1/2, 1/2, 7, 7, 5, 2],
-            [3, 1/3, 1, 1/3, 5, 1, 1/4, 1/4, 6, 6, 4, 1/2],
-            [4, 1, 3, 1, 6, 3, 1/2, 1/2, 7, 7, 5, 2],
-            [1/4, 1/6, 1/5, 1/6, 1, 1/5, 1/7, 1/7, 2, 2, 1/3, 1/5],
-            [3, 1/3, 1, 1/3, 5, 1, 1/4, 1/4, 6, 6, 4, 1/2],
-            [5, 2, 4, 2, 7, 4, 1, 1, 8, 8, 6, 3],
-            [5, 2, 4, 2, 7, 4, 1, 1, 8, 8, 6, 3],
-            [1/5, 1/7, 1/6, 1/7, 1/2, 1/6, 1/8, 1/8, 1, 1, 1/4, 1/6],
-            [1/5, 1/7, 1/6, 1/7, 1/2, 1/6, 1/8, 1/8, 1, 1, 1/4, 1/6],
-            [1/3, 1/5, 1/4, 1/5, 3, 1/4, 1/6, 1/6, 4, 4, 1, 1/4],
-            [3, 1/2, 2, 1/2, 5, 2, 1/3, 1/3, 6, 6, 4, 1]]
+        import numpy as np
 
-        env_p_3=[[1, 1/2, 1/3, 2, 1/8, 2, 1, 1/4, 1/5, 1/3, 1/3, 1],
-            [2, 1, 1/2, 3, 1/7, 3, 2, 1/3, 1/4, 1/2, 1/2, 2],
-            [3, 2, 1, 4, 1/6, 4, 3, 1/2, 1/3, 1, 1, 3],
-            [1/2, 1/3, 1/4, 1, 1/9, 1, 1/2, 1/5, 1/6, 1/4, 1/4, 1/2],
-            [8, 7, 6, 9, 1, 9, 8, 5, 3, 6, 6, 8],
-            [1/2, 1/3, 1/4, 1, 1/9, 1, 1/2, 1/5, 1/6, 1/4, 1/4, 1/2],
-            [1, 1/2, 1/3, 2, 1/8, 2, 1, 1/4, 1/5, 1/3, 1/3, 1],
-            [4, 3, 2, 5, 1/5, 5, 4, 1, 1/2, 2, 2, 4],
-            [5, 4, 3, 6, 1/3, 6, 5, 2, 1, 3, 3, 5],
-            [3, 2, 1, 4, 1/6, 4, 3, 1/2, 1/3, 1, 1, 3],
-            [3, 2, 1, 4, 1/6, 4, 3, 1/2, 1/3, 1, 1, 3],
-            [1, 1/2, 1/3, 2, 1/8, 2, 1, 1/4, 1/5, 1/3, 1/3, 1]
-            ]
+        def generate_pairwise_matrix_from_data(data, preference='higher'):
+            """
+            Generates a pairwise comparison matrix from quantitative data.
 
-        env_c_1=[[1, 2, 1/2, 2, 2, 1, 1/5, 2, 1, 1/3, 1/8, 1/6],
-            [1/2, 1, 1/3, 1, 1, 1/2, 1/6, 1, 1/2, 1/4, 1/9, 1/7],
-            [2, 3, 1, 3, 3, 2, 1/4, 3, 2, 1/2, 1/7, 1/5],
-            [1/2, 1, 1/3, 1, 1, 1/2, 1/6, 1, 1/2, 1/4, 1/9, 1/7],
-            [1/2, 1, 1/3, 1, 1, 1/2, 1/6, 1, 1/2, 1/4, 1/9, 1/7],
-            [1, 2, 1/2, 2, 2, 1, 1/5, 2, 1, 1/3, 1/8, 1/6],
-            [5, 6, 4, 6, 6, 5, 1, 6, 5, 3, 1/5, 1/3],
-            [1/2, 1, 1/3, 1, 1, 1/2, 1/6, 1, 1/2, 1/4, 1/9, 1/7],
-            [1, 2, 1/2, 2, 2, 1, 1/5, 2, 1, 1/3, 1/8, 1/6],
-            [3, 4, 2, 4, 4, 3, 1/3, 4, 3, 1, 1/6, 1/4],
-            [8, 9, 7, 9, 9, 8, 5, 9, 8, 6, 1, 4],
-            [6, 7, 5, 7, 7, 6, 3, 7, 6, 4, 1/4, 1]
-            ]
-    
-        e_c_1=[[1, 1/5, 1/2, 1/5, 1/4, 1/2, 3, 1/3, 1, 1, 5, 5],
-            [5, 1, 4, 1, 2, 4, 6, 3, 5, 5, 8, 8],
-            [2, 1/4, 1, 1/4, 1/3, 1, 3, 1/2, 2, 2, 5, 5],
-            [5, 1, 4, 1, 2, 4, 6, 3, 5, 5, 8, 8],
-            [4, 1/2, 3, 1/2, 1, 3, 5, 2, 4, 4, 7, 7],
-            [2, 1/4, 1, 1/4, 1/3, 1, 3, 1/2, 2, 2, 5, 5],
-            [1/3, 1/6, 1/3, 1/6, 1/5, 1/3, 1, 1/4, 1/3, 1/3, 3, 3],
-            [3, 1/3, 2, 1/3, 1/2, 2, 4, 1, 3, 3, 6, 6],
-            [1, 1/5, 1/2, 1/5, 1/4, 1/2, 3, 1/3, 1, 1, 5, 5],
-            [1, 1/5, 1/2, 1/5, 1/4, 1/2, 3, 1/3, 1, 1, 5, 5],
-            [1/5, 1/8, 1/5, 1/8, 1/7, 1/5, 1/3, 1/6, 1/5, 1/5, 1, 1],
-            [1/5, 1/8, 1/5, 1/8, 1/7, 1/5, 1/3, 1/6, 1/5, 1/5, 1, 1]]
+            Parameters:
+            - data: dataframe, index are cluster IDs, values are median GDP per Capita.
+            - preference: 'higher' if higher values are preferred, 'lower' if lower values are preferred.
 
-        e_epte_1=[[1, 1, 1/4, 1, 1, 1, 1/2, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [1, 1, 1/4, 1, 1, 1, 1/2, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [4, 4, 1, 4, 4, 4, 3, 3, 1/4, 1/6, 1/8, 1/3],
-            [1, 1, 1/4, 1, 1, 1, 1/2, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [1, 1, 1/4, 1, 1, 1, 1/2, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [1, 1, 1/4, 1, 1, 1, 1/2, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [2, 2, 1/3, 2, 2, 2, 1, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [2, 2, 1/3, 2, 2, 2, 1, 1/2, 1/6, 1/7, 1/9, 1/5],
-            [6, 6, 4, 6, 6, 6, 6, 6, 1, 1/3, 1/6, 2],
-            [7, 7, 6, 7, 7, 7, 7, 7, 3, 1, 1/5, 4],
-            [9, 9, 8, 9, 9, 9, 9, 9, 6, 5, 1, 6],
-            [5, 5, 3, 5, 5, 5, 5, 5, 1/2, 1/4, 1/6, 1]
-    ]
+            Returns:
+            - pairwise_matrix: numpy array
+            - cluster_ids: list of cluster IDs
+            """
+            cluster_ids = list(data.index)
+            n = len(cluster_ids)
+            pairwise_matrix = np.ones((n, n))
+            data = data.replace(0, 1e-6)
+            if preference == 'lower':
+                data = data.max() + data.min() - data
 
-        t_p_1=[[1, 1/4, 1/5, 1/2, 1/3, 1/3, 1/2, 1/4, 1/6, 1/6, 1/6, 1/5],
-            [4, 1, 1/2, 3, 2, 2, 3, 1, 1/3, 1/3, 1/3, 1/2],
-            [5, 2, 1, 4, 3, 3, 4, 2, 1/2, 1/2, 1/2, 1],
-            [2, 1/3, 1/4, 1, 1/2, 1/2, 1, 1/3, 1/5, 1/5, 1/5, 1/4],
-            [3, 1/2, 1/3, 2, 1, 1, 2, 1/2, 1/4, 1/4, 1/4, 1/3],
-            [3, 1/2, 1/3, 2, 1, 1, 2, 1/2, 1/4, 1/4, 1/4, 1/3],
-            [2, 1/3, 1/4, 1, 1/2, 1/2, 1, 1/3, 1/5, 1/5, 1/5, 1/4],
-            [4, 1, 1/2, 3, 2, 2, 3, 1, 1/3, 1/3, 1/3, 1/2],
-            [6, 3, 2, 5, 4, 4, 5, 3, 1, 1, 1, 2],
-            [6, 3, 2, 5, 4, 4, 5, 3, 1, 1, 1, 2],
-            [6, 3, 2, 5, 4, 4, 5, 3, 1, 1, 1, 2],
-            [5, 2, 1, 4, 3, 3, 4, 2, 1/2, 1/2, 1/2, 1]
-            ]
+            # Normalize data to [1, 9]
+            min_value = data.min()
+            max_value = data.max()
+            normalized_data = 1 + 8 * (data - min_value) / (max_value - min_value)
 
-        dict_pref_alt = {"D-C-1":d_c_1, "D-EPTE-1":d_epte_1, "Env-P-2":env_p_2, "Env-P-3":env_p_3, "Env-C-1":env_c_1, "E-C-1":e_c_1, "E-EPTE-1":e_epte_1, "T-P-1":t_p_1}
+            for i in range(n):
+                for j in range(i + 1, n):
+                    ratio = normalized_data.iloc[i] / normalized_data.iloc[j]
+                    pairwise_matrix[i, j] = ratio
+                    pairwise_matrix[j, i] = 1 / ratio
+
+            return pairwise_matrix, cluster_ids
+
+
+        dict_pref_alt_keys = agg_df.columns[3:-1]
+        dict_pref_alt = {}
+        for key in dict_pref_alt_keys:
+            df = pd.concat([agg_df.groupby('class')[key].median(),agg_df_outliers_1st_pca[[key]]])
+            if key in ["Env-P-2", "Env-C-1", "T-P-1", "D-EPTE-1"]:
+                matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="lower")
+            else:
+                matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="higher")
+            dict_pref_alt[key] = pd.DataFrame(matrix, columns = matrix_index, index = matrix_index)
+
         crit = st.selectbox("Check the preference matrix and weights of alternatives for a criterion", df_a.index)
         column1, column2 = st.columns([2,1])
         with column1:
             df_crit = pd.DataFrame(dict_pref_alt[crit])
-            df_crit_column = [str(i) for i in range(8)] + ["31555", "69123", "75056", "92044"]
-            df_crit.columns = df_crit_column
-            df_crit.index = df_crit_column
             df_crit
         with column2:
             df_weights_crit_alt = ahp_get_weights(dict_pref_alt[crit])
-            st.write(construct_weights_df(df_weights_crit_alt, df_crit_column))
+            st.write(df_weights_crit_alt)
 
         st.write(
             "Final scores for each alternative "
         )
 
         dfs = []
+
         for crit in df_a.index:
-            df = construct_weights_df(ahp_get_weights(dict_pref_alt[crit]), df_crit_column)
-            df.columns = ["Weights " + crit]
+            df = ahp_get_weights(dict_pref_alt[crit])
+            df.rename("Weights " + crit, inplace=True)
             dfs.append(df)
         df_all = pd.concat(dfs, axis=1)
-        
-        final_scores = (df_all*weights_df.values.T).sum(axis=1)
+        final_scores = (df_all*weights.values.T).sum(axis=1)
         final_scores.sort_values(ascending=False, inplace=True)
+        final_scores.rename("Final Scores", inplace=True)
         final_scores
         
         agg_df_outliers_1st_pca['class']=agg_df_outliers_1st_pca.index
         agg_df=pd.concat([agg_df, agg_df_outliers_1st_pca], axis=0)
-        my_order = final_scores.index
+        agg_df = agg_df.merge(final_scores, left_on='class', right_index=True)
 
-        my_order_dict = {key: i for i, key in enumerate(my_order)}
-        agg_df['order']=agg_df['class'].apply(lambda d: my_order_dict[d])
         df_merged = gdf.merge(agg_df, left_index=True, right_index=True)
-        df_merged.sort_values(by='order', inplace=True)
-        # file = df_merged.to_file("chorepleth_data")
-        # st.download_button("Download here", file, file_name='chorepleth_data.shp')
 
 
     fig, ax = plt.subplots(1, figsize=(10,10))
     divider = make_axes_locatable(ax)
-    df_merged.plot(column='order', cmap='Oranges_r', linewidth=1, ax=ax, legend = False)
+    df_merged.plot(column='Final Scores', cmap='Oranges', linewidth=1, ax=ax, legend=False)
     ax.axis('off')
     st.pyplot(fig)
 
@@ -760,31 +725,124 @@ with tab1:
 
     final_score_scaled = final_scores/final_scores.max()
 
-    max_adoption_rate = st.number_input("The maximum adoption rate is ", value=0.3, min_value=0.0, max_value=1.0)
+    max_adoption_rate = st.number_input("The maximum adoption rate is ", value=0.6, min_value=0.0, max_value=1.0)
     adoption_rates = max_adoption_rate*final_score_scaled
+    adoption_rates.rename("Adoption Rates", inplace=True)
     st.write(
         """
         Adoption rate for each cluster is then
         """, adoption_rates)
-    adoption_rates.rename("adop_rate", inplace=True)
+    
 
-    csv = convert_df(adoption_rates)
-    st.download_button("Download here", csv, mime='text/csv', file_name='adoption_rates.csv')
+    # csv = convert_df(adoption_rates)
+    # st.download_button("Download here", csv, mime='text/csv', file_name='adoption_rates_clusters_geo.csv')
 
-    geo_info = df_merged.merge(adoption_rates, how='left', left_on='class', right_index=True)[["class", "adop_rate"]]
+    # geo_info = df_merged.merge(adoption_rates, how='left', left_on='class', right_index=True)[["class", "adop_rate"]]
     # geo_info
 
+with tab2:
+    csv_file = st.file_uploader("Upload all vehicles included in Serviceable Available Market")
+    if csv_file is not None:
+        df_vehicle = pd.read_csv(csv_file)
+    else:
+        file_path = fr"{precharged_folder}\{str(current_year)}_vehicle_list_SAM.csv"
+        df_vehicle = pd.read_csv(file_path,low_memory=False, index_col=0, dtype=object)
+    df_vehicle = change_type(df_vehicle)
+    st.write(df_vehicle.head())
+    st.write(
+        """
+        ### Cluster
+        """
+    )
+    with st.expander("Click here to see how clustering is done on vehicle models"):
+        """
+        #### Group by
+        The vehicle dataframe is grouped by type_version_variante and calculates specific aggregations for each column in the group:
+        - `poids_a_vide_national`, `puissance_net_maxi`, `co2`, and `Age`: Calculates the median value.
+        - `carrosserie_ce`: Finds the most frequent (mode) value.
+        The `classe_env` is not kept as it is highly correlated with the column `Age`.
+        """
+
+        df_tvv = df_vehicle[["type_version_variante", "puissance_net_maxi", "poids_a_vide_national", "carrosserie_ce", "co2", "Age"]].groupby(by='type_version_variante').agg(
+            {"poids_a_vide_national": 'median',
+            "puissance_net_maxi": 'median',
+            "carrosserie_ce": lambda x:x.mode().iloc[0],
+            "co2": 'median',
+            "Age": "median"}
+        )
+        st.write(df_tvv)
+        """
+        #### Encoding
+        This encoding step assigns numeric scores to categorical variables to make them suitable for analysis. 
+        For `carrosserie_ce`, we use label encoding to assign unique integer codes to each category, making the data ready for further quantitative analysis.
+        Here is its encoding dictionary. 
+        """
+        st.write(dict(enumerate(df_tvv['carrosserie_ce'].astype('category').cat.categories)))
+        df_tvv['carrosserie_ce'] = df_tvv['carrosserie_ce'].astype('category').cat.codes
+        st.write(df_tvv)
+        
+        scaler = StandardScaler()
+        df_tvv_scaled = pd.DataFrame(scaler.fit_transform(df_tvv), columns=df_tvv.columns)
+
+        dict_score = find_num_clusters(df_tvv_scaled)
+        st.write("The silhouette scores for each number of clusters are", dict_score)
+        n=int(st.number_input("The number of clusters chosen here is ", value=10))
+        kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(df_tvv_scaled)
+        df_tvv_scaled["class"] = kmeans.labels_
+        pca=PCA()
+        df_tvv_2d = pd.DataFrame(pca.fit_transform(df_tvv_scaled.iloc[:,:-1]))
+        df_tvv_2d.columns = ['PC'+str(i) for i in range(1,6)]
+        df_tvv_2d.index = df_tvv_scaled.index
+        df_tvv_2d = df_tvv_2d[['PC1', 'PC2']]
+        df_tvv_2d['class'] = df_tvv_scaled['class']
+        st.plotly_chart(px.scatter(df_tvv_2d, x='PC1', y='PC2', color='class'))
+
+    """
+    ### Rank Clusters
+    """
+    with st.expander("Click here to see how ranking of clusters is done on vehicle models"):
+        st.write("""
+        The criteria involved here are: `poids_a_vide_national`, `puissance_net_maxi`, `carrosserie_ce`, `co2`, `Age`.
+        
+        The preference matrix proposed is:
+        """)
+        criteria = df_tvv.columns
+        df_pref_vehicle = pd.DataFrame([
+            [1, 5, 3, 7, 3],
+            [1/5, 1, 1/3, 3, 1/3],
+            [1/3, 3, 1, 5, 1],
+            [1/7, 1/3, 1/5, 1, 1/5],
+            [1/3, 3, 1, 5, 1]
+        ], index=criteria, columns=criteria)
+        st.write(df_pref_vehicle)
+
+        weights_crit_vehicle = ahp_get_weights(df_pref_vehicle)
+        st.write("The weights for each criteria are: ",weights_crit_vehicle)
+        df_tvv["class"] = kmeans.labels_
+        st.write("The statistics for the different vehicle model clusters are shown as below. The median values for numerical attributes are calculated, and the most common category for the `carrosserie_ce` is shown.", df_tvv.groupby(by='class').agg(
+            {"poids_a_vide_national":"median",
+            "puissance_net_maxi":"median",
+            "carrosserie_ce":lambda x:x.mode().iloc[0],
+            "co2":"median",
+            "Age":"median"}
+        ))
+
+        
+
+
+
+
+
+
 with tab3:
-    current_year = st.radio('Show Market Situation in Year ', [2022, 2023, 2024, 2025, 2026], horizontal=True)
     csv_file = st.file_uploader("Upload all vehicles included in Serviceable Available Market here")
     if csv_file is not None:
         df_vehicle = pd.read_csv(csv_file)
     else:
-        file_path = r"C:\Users\zwu\OneDrive - IMT Mines Albi\Documents\Data\DemandForecasting\Vehicles\Simulated_car_registration\\"+str(current_year)+"_vehicle_list_SAM.csv"
-        df_vehicle = pd.read_csv(file_path).iloc[:,2:]
-        df_vehicle = df_vehicle.astype({'Code_commune':str})
+        file_path = fr"{precharged_folder}\{str(current_year)}_vehicle_list_SAM.csv"
+        df_vehicle = pd.read_csv(file_path,low_memory=False, index_col=0, dtype=object)
     
-    df_vehicle = df_vehicle.merge(geo_info, how='left', left_on="Code_commune", right_index=True)
+    df_vehicle = df_vehicle.merge(geo_info, how='left', left_on="code_commune_titulaire", right_index=True)
     df_vehicle['retrofit_service'] = np.nan
     for i in range(df_vehicle.shape[0]):
         proba_retrofit = df_vehicle.iloc[i]["adop_rate"]
@@ -792,6 +850,5 @@ with tab3:
     
     st.write(df_vehicle)
 
-    # def check_perf_matrix(a, rtol=1e-05, atol=1e-08):
-    #     a = np.array(a)
-    #     return np.multiply(a, a.T)
+if st.button("Go to DEC"):
+    st.switch_page("MarketSharefortheCompany.py")
