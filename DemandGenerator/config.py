@@ -22,6 +22,7 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 import re
+import pickle
 
 current_year = 2024
 # The existing product data source

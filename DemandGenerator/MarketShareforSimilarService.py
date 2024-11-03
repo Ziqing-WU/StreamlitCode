@@ -1,5 +1,5 @@
 from config import *
-
+np.random.seed(0)
 with st.sidebar:
     """
     Navigation
@@ -8,11 +8,10 @@ with st.sidebar:
     - [Executive Factors](#executive-factors)
     - [Workflow](#workflow)
     """
-
 @st.cache_resource
-def find_num_clusters(pca_2d):
+def find_num_clusters(pca_2d, max_num=15):
     dict_score = {}
-    for n in range(2,25):
+    for n in range(2,max_num):
         kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(pca_2d)
         dict_score[n] = silhouette_score(pca_2d, labels=kmeans.labels_)
     return dict_score
@@ -350,7 +349,7 @@ with tab1:
         agg_df.dropna(inplace=True)
         agg_df_d = agg_df.iloc[:, 3:]
         
-        agg_df_d_melted = agg_df_d.reset_index().melt(id_vars='COM', var_name='category', value_name='value')
+        # agg_df_d_melted = agg_df_d.reset_index().melt(id_vars='COM', var_name='category', value_name='value')
         # st.write(agg_df_d_melted.head())
         # fig = px.box(agg_df_d_melted, x='category', y='value')
         # st.plotly_chart(fig)
@@ -448,12 +447,12 @@ with tab1:
         pca_nd['NCC'] = agg_df['NCC']
         st.plotly_chart(px.scatter(pca_nd, x='PC1', y='PC2', hover_data=['NCC', 'REG'], color='class'))
 
-        def convert_df(df):
-            return df.to_csv().encode('utf-8')
+        # def convert_df(df):
+        #     return df.to_csv().encode('utf-8')
             
         agg_df = agg_df.merge(pca_nd[['class']], left_index=True, right_index=True)
-        csv = convert_df(agg_df)
-        st.download_button("Download the clustering results here", csv, mime='text/csv', file_name='clustering.csv')
+        # csv = convert_df(agg_df)
+        # st.download_button("Download the clustering results here", csv, mime='text/csv', file_name='clustering.csv')
 
 
         st.markdown(
@@ -634,7 +633,6 @@ with tab1:
             weights=ahp_get_weights(df_a)
         
         st.write("Now let's evaluate the alternatives")
-        import numpy as np
 
         def generate_pairwise_matrix_from_data(data, preference='higher'):
             """
@@ -725,14 +723,16 @@ with tab1:
 
     final_score_scaled = final_scores/final_scores.max()
 
-    max_adoption_rate = st.number_input("The maximum adoption rate is ", value=0.6, min_value=0.0, max_value=1.0)
+    max_adoption_rate = st.number_input("The maximum adoption rate for a city cluster is ", value=1.0, min_value=0.0, max_value=1.0)
     adoption_rates = max_adoption_rate*final_score_scaled
     adoption_rates.rename("Adoption Rates", inplace=True)
     st.write(
         """
         Adoption rate for each cluster is then
         """, adoption_rates)
-    
+    adoption_rates_geo = agg_df.merge(adoption_rates, how='left', left_on='class', right_index=True).drop('class',axis=1)
+    adoption_rates_geo = adoption_rates_geo[adoption_rates_geo['REG'] == '76'][["Adoption Rates"]]
+    adoption_rates_geo
 
     # csv = convert_df(adoption_rates)
     # st.download_button("Download here", csv, mime='text/csv', file_name='adoption_rates_clusters_geo.csv')
@@ -742,12 +742,16 @@ with tab1:
 
 with tab2:
     csv_file = st.file_uploader("Upload all vehicles included in Serviceable Available Market")
+    st.write("A dataset on ICE vehicles, filtered with default settings to represent the serviceable addressable market, has been loaded by default if no data is provided.")
     if csv_file is not None:
         df_vehicle = pd.read_csv(csv_file)
     else:
-        file_path = fr"{precharged_folder}\{str(current_year)}_vehicle_list_SAM.csv"
-        df_vehicle = pd.read_csv(file_path,low_memory=False, index_col=0, dtype=object)
-    df_vehicle = change_type(df_vehicle)
+        with open(f"data_precharged/{current_year}_vehicle_list_SAM.pickle", "rb") as f:
+            dict_input = pickle.load(f)
+            df_vehicle = dict_input["Dataframe"]
+        # file_path = fr"{precharged_folder}\{str(current_year)}_vehicle_list_SAM.csv"
+        # df_vehicle = pd.read_csv(file_path,low_memory=False, index_col=0, dtype=object)
+    # df_vehicle = change_type(df_vehicle)
     st.write(df_vehicle.head())
     st.write(
         """
@@ -777,7 +781,8 @@ with tab2:
         For `carrosserie_ce`, we use label encoding to assign unique integer codes to each category, making the data ready for further quantitative analysis.
         Here is its encoding dictionary. 
         """
-        st.write(dict(enumerate(df_tvv['carrosserie_ce'].astype('category').cat.categories)))
+        dict_carrosserie = dict(enumerate(df_tvv['carrosserie_ce'].astype('category').cat.categories))
+        st.write(dict_carrosserie)
         df_tvv['carrosserie_ce'] = df_tvv['carrosserie_ce'].astype('category').cat.codes
         st.write(df_tvv)
         
@@ -819,36 +824,112 @@ with tab2:
         weights_crit_vehicle = ahp_get_weights(df_pref_vehicle)
         st.write("The weights for each criteria are: ",weights_crit_vehicle)
         df_tvv["class"] = kmeans.labels_
-        st.write("The statistics for the different vehicle model clusters are shown as below. The median values for numerical attributes are calculated, and the most common category for the `carrosserie_ce` is shown.", df_tvv.groupby(by='class').agg(
+        df_tvv_agg = df_tvv.groupby(by='class').agg(
             {"poids_a_vide_national":"median",
             "puissance_net_maxi":"median",
             "carrosserie_ce":lambda x:x.mode().iloc[0],
             "co2":"median",
             "Age":"median"}
-        ))
-
-        
-
-
+        )
+        st.write("The statistics for the different vehicle model clusters are shown as below. The median values for numerical attributes are calculated, and the most common category for the `carrosserie_ce` is shown.", df_tvv_agg)
+        st.write("""
 
 
+        """)
+        dict_pref_alt_keys = df_tvv.columns[:-1]
+        dict_pref_alt = {}
+        for key in dict_pref_alt_keys:
+            df = df_tvv_agg[[key]]
+            if key in ["poids_a_vide_national", "puissance_net_maxi"]:
+                matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="lower")
+            if key in ["co2", "Age"]:
+                matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="higher")
+            if key in ["carrosserie_ce"]:
+                df = df.astype(str)
+                preference_values = {
+                    ('5', '5'): 1,
+                    ('5', '2'): 3,
+                    ('5', '1'): 5,
+                    ('2', '5'): 1/3,
+                    ('2', '2'): 1,
+                    ('2', '1'): 3,
+                    ('1', '5'): 1/5,
+                    ('1', '2'): 1/3,
+                    ('1', '1'): 1
+                }
+                matrix = np.zeros((len(df), len(df)))
+                for i in range(len(df)):
+                    for j in range(len(df)):
+                        type_i = df.loc[i, 'carrosserie_ce']
+                        type_j = df.loc[j, 'carrosserie_ce']
+                        preference = preference_values.get((type_i, type_j),1)
+                        matrix[i,j] = preference
+                matrix_index = df.index
+            dict_pref_alt[key] = pd.DataFrame(matrix, columns = matrix_index, index = matrix_index)
 
+        crit = st.selectbox("Check the preference matrix and weights of alternatives for a criterion", dict_pref_alt_keys)
+        column1, column2 = st.columns([2,1])
+        with column1:
+            df_crit = pd.DataFrame(dict_pref_alt[crit])
+            df_crit
+        with column2:
+            df_weights_crit_alt = ahp_get_weights(dict_pref_alt[crit])
+            st.write(df_weights_crit_alt)
+
+        st.write(
+            "Final scores for each alternative "
+        )
+
+        dfs = []
+        for crit in dict_pref_alt_keys:
+            df = ahp_get_weights(dict_pref_alt[crit])
+            df.rename("Weights " + crit, inplace=True)
+            dfs.append(df)
+        df_all = pd.concat(dfs, axis=1)
+        final_scores = (df_all*weights_crit_vehicle.values.T).sum(axis=1)
+        final_scores.sort_values(ascending=False, inplace=True)
+        final_scores.rename("Final Scores", inplace=True)
+        final_scores
+
+        st.markdown(
+        """
+        ### Estimate adoption rate for each cluster
+        """
+    )
+
+        final_score_scaled = final_scores/final_scores.max()
+
+        max_adoption_rate = st.number_input("The maximum adoption rate for a vehicle model cluster is ", value=1.0, min_value=0.0, max_value=1.0)
+        adoption_rates = max_adoption_rate*final_score_scaled
+        adoption_rates.rename("Adoption Rates", inplace=True)
+        st.write(
+            """
+            Adoption rate for each vehicle type cluster is then
+            """, adoption_rates)
+        adoption_rates_vehicle = df_tvv[["class"]].merge(adoption_rates, how='left', left_on='class', right_index=True).drop('class', axis=1)
+        adoption_rates_vehicle
 
 with tab3:
-    csv_file = st.file_uploader("Upload all vehicles included in Serviceable Available Market here")
-    if csv_file is not None:
-        df_vehicle = pd.read_csv(csv_file)
-    else:
-        file_path = fr"{precharged_folder}\{str(current_year)}_vehicle_list_SAM.csv"
-        df_vehicle = pd.read_csv(file_path,low_memory=False, index_col=0, dtype=object)
-    
-    df_vehicle = df_vehicle.merge(geo_info, how='left', left_on="code_commune_titulaire", right_index=True)
+  
+    df_vehicle = df_vehicle.merge(adoption_rates_geo, how='left', left_on="code_commune_titulaire", right_index=True)
+    df_vehicle = df_vehicle.merge(adoption_rates_vehicle, how='left', left_on="type_version_variante", right_index=True)
+    df_vehicle["adop_rate"] = df_vehicle["Adoption Rates_x"] * df_vehicle["Adoption Rates_y"]
     df_vehicle['retrofit_service'] = np.nan
     for i in range(df_vehicle.shape[0]):
         proba_retrofit = df_vehicle.iloc[i]["adop_rate"]
         df_vehicle.iloc[i,-1] = np.random.choice([False,True], p=[1-proba_retrofit, proba_retrofit])
-    
-    st.write(df_vehicle)
+    num_retrofit = df_vehicle["adop_rate"].sum().round()
+    # @st.cache_data
+    # def convert_df(df):
+    #     return df.to_csv().encode('utf-8')
+    st.write(df_vehicle.head(10))
+    st.write(f"Out of {df_vehicle.shape[0]} vehicles, {df_vehicle[df_vehicle["retrofit_service"]].shape[0]} or {num_retrofit} are selected for retrofit service.")
+    # csv_df = convert_df(df_vehicle[df_vehicle["retrofit_service"]])
+    # st.download_button("Download Vehicle List Here", csv_df, mime='text/csv', file_name=str(current_year)+'_vehicle_list_DEM.csv')
+    dict_output = {"Dataframe": df_vehicle}
+    if st.button("Download dataset in the demand estimation for the market"):
+        with open(f"data_precharged/{current_year}_vehicle_list_DEM.pickle", "wb") as f:
+            pickle.dump(dict_output, f)
 
 if st.button("Go to DEC"):
     st.switch_page("MarketSharefortheCompany.py")

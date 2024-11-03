@@ -13,7 +13,7 @@ st.markdown(
     # Serviceable Available Market
     '''
 )
-
+param = {}
 csv_vehicles = st.file_uploader(
     'Upload a file of the existing product information representing the total addressable market'
 )
@@ -22,10 +22,12 @@ csv_vehicles = st.file_uploader(
 if csv_vehicles is not None:
     df_vehicles = pd.read_csv(csv_vehicles, low_memory=False, index_col=0, dtype=object)
 else:
-    file_path_v= precharged_folder + f"\{str(current_year)}_vehicle_list_TAM.csv"
-    df_vehicles = pd.read_csv(file_path_v, low_memory=False, index_col=0, dtype=object)
-
-df_vehicles = change_type(df_vehicles)
+    with open(f"data_precharged/{current_year}_vehicle_list_TAM.pickle", "rb") as f:
+        dict_input = pickle.load(f)
+    df_vehicles = dict_input["Dataframe"]
+    # file_path_v= precharged_folder + f"\{str(current_year)}_vehicle_list_TAM.csv"
+    # df_vehicles = pd.read_csv(file_path_v, low_memory=False, index_col=0, dtype=object)
+# df_vehicles = change_type(df_vehicles)
 st.write("Here is a preview of the imported data:", df_vehicles.head(5))
 
 locations = df_vehicles["code_commune_titulaire"].unique().tolist()
@@ -65,23 +67,23 @@ category = st.multiselect('Vehicle Category', categorys, 'M1')
 
 df_model = df_model.index
 
-@st.cache_data
-def apply_filters(df):
-    filter_steps = []
-    filter_steps.append(("Total","", df.shape[0]))
-    # filter geographical coverage
-    if not select_all:
-        df = df[df['code_commune_titulaire'].isin(geo["COM"])]
-    filter_steps.append(("Geo","Total", df.shape[0]))
-    # filter models
-    df = df[df['type_version_variante'].isin(df_model)]
-    filter_steps.append(("Vehicle Model","Geo", df.shape[0]))
-    # filter categories
-    df = df[df['categorie_vehicule'].isin(category)]
-    filter_steps.append(("Category","Vehicle Model", df.shape[0]))
-    return df,filter_steps
 
-df_vehicles, filter_steps = apply_filters(df_vehicles)
+filter_steps = []
+filter_steps.append(("Total","", df_vehicles.shape[0]))
+# filter geographical coverage
+if not select_all:
+    df_vehicles = df_vehicles[df_vehicles['code_commune_titulaire'].isin(geo["COM"])]
+    param["commune"] = geo["COM"].tolist()
+filter_steps.append(("Geo","Total", df_vehicles.shape[0]))
+# filter models
+df_vehicles = df_vehicles[df_vehicles['type_version_variante'].isin(df_model)]
+param["model"] = df_model.tolist()
+filter_steps.append(("Vehicle Model","Geo", df_vehicles.shape[0]))
+# filter categories
+df_vehicles = df_vehicles[df_vehicles['categorie_vehicule'].isin(category)]
+param["category"] = category
+filter_steps.append(("Category","Vehicle Model", df_vehicles.shape[0]))
+
 filter_df = pd.DataFrame(filter_steps, columns=["Filter Step", "Previous Step", "Remaining Count"])
 fig = px.funnel(filter_df, y='Filter Step', x='Remaining Count')
 fig.update_layout(xaxis_title='Number of filtered vehicles')
@@ -91,9 +93,13 @@ st.plotly_chart(fig)
 def convert_df(df):
     return df.to_csv().encode('utf-8')
 
-csv = convert_df(df_vehicles)
+# csv = convert_df(df_vehicles)
 
-st.download_button('Download the list of vehicles in Service Available Market here', csv, mime='text/csv', file_name=str(current_year)+'_vehicle_list_SAM.csv')
+# st.download_button('Download the list of vehicles in Service Available Market here', csv, mime='text/csv', file_name=str(current_year)+'_vehicle_list_SAM.csv')
+dict_output = {"Dataframe": df_vehicles, "Parameters": param}
+if st.button("Download parameters and dataset in the serviceable available market"):
+        with open(f"data_precharged/{current_year}_vehicle_list_SAM.pickle", "wb") as f:
+            pickle.dump(dict_output, f)
 if st.button("Go to DEM"):
     st.switch_page("MarketShareforSimilarService.py")
 

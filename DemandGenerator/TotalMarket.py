@@ -9,7 +9,7 @@ with st.sidebar:
     - [Geographical Distribution](#geographical-distribution)
     - [Vehicle Age & Brand](#vehicle-age-brand)
     """
-
+param = {}
 
 @st.cache_data
 def create_map():
@@ -51,6 +51,7 @@ else:
 """
 
 options = st.multiselect("Select the columns that you think relevant for estimating the demand", df.columns[2:], ["code_commune_titulaire","pays_titulaire", "marque", "date_premiere_immatriculation", "type_version_variante", "poids_a_vide_national", "categorie_vehicule", "carrosserie_ce", "cylindree", "puissance_net_maxi", "energie", "niv_sonore", "co2", "classe_env"])
+param["columns_kept"] = options
 
 @st.cache_data
 def select_vehicle_data(df, options):
@@ -200,13 +201,17 @@ st.markdown(
 
 st.write(df_selected.head(10))
 
-@st.cache_data
-def convert_df(df):
-    return df.to_csv().encode('utf-8')
+# @st.cache_data
+# def convert_df(df):
+#     return df.to_csv().encode('utf-8')
 
-csv = convert_df(df_selected)
+dict_output = {"Parameters": param, "Dataframe": df_selected}
+if st.button("Download parameters and dataset in the total market"):
+    with open(f"data_precharged/{current_year}_vehicle_list_TM.pickle", "wb") as f:
+        pickle.dump(dict_output, f)
+# csv = convert_df(df_selected)
 
-st.download_button("Download", csv, mime='text/csv', file_name='vehicle_list_TM.csv')
+# st.download_button("Download", csv, mime='text/csv', file_name='vehicle_list_TM.csv')
 st.write("*N.B.* In this step, the relevant columns of the dataset of existing products have been selected. The previous two sections Geographical Distribution and Vehicle Age & Brand are only for data understanding which won't change the output of this page.")
 st.write("After downloading the data for the Total Market. Let's continue with Total Addressable Market (TAM).")
 if st.button("Go to TAM"):
