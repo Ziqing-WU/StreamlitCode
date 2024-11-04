@@ -23,6 +23,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 import re
 import pickle
+from scipy.integrate import odeint
 
 current_year = 2024
 # The existing product data source
