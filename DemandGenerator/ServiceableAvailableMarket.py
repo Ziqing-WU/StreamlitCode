@@ -63,8 +63,8 @@ if st.toggle("Upload a list of INSEE commune codes", value=True):
         geo = pd.read_csv(file_path_g, dtype=object)
 st.write("By default, communes with population densities ranging from petites villes to grands centres urbains are selected, representing less than 10% of the commune codes but more than 60% of the population.")
 
-category = st.multiselect('Vehicle Category', categorys, 'M1')
-
+# category = st.multiselect('Vehicle Category', categorys, 'M1')
+category = ['M1']
 df_model = df_model.index
 
 
@@ -74,19 +74,24 @@ filter_steps.append(("Total","", df_vehicles.shape[0]))
 if not select_all:
     df_vehicles = df_vehicles[df_vehicles['code_commune_titulaire'].isin(geo["COM"])]
     param["commune"] = geo["COM"].tolist()
-filter_steps.append(("Geo","Total", df_vehicles.shape[0]))
+filter_steps.append(("Geographical Coverage","Total", df_vehicles.shape[0]))
 # filter models
 df_vehicles = df_vehicles[df_vehicles['type_version_variante'].isin(df_model)]
 param["model"] = df_model.tolist()
-filter_steps.append(("Vehicle Model","Geo", df_vehicles.shape[0]))
+filter_steps.append(("TVV","Geographical Coverage", df_vehicles.shape[0]))
 # filter categories
 df_vehicles = df_vehicles[df_vehicles['categorie_vehicule'].isin(category)]
 param["category"] = category
-filter_steps.append(("Category","Vehicle Model", df_vehicles.shape[0]))
+# filter_steps.append(("Vehicle Category","TVV", df_vehicles.shape[0]))
 
 filter_df = pd.DataFrame(filter_steps, columns=["Filter Step", "Previous Step", "Remaining Count"])
 fig = px.funnel(filter_df, y='Filter Step', x='Remaining Count')
 fig.update_layout(xaxis_title='Number of filtered vehicles')
+fig.update_traces(textfont=dict(size=16), textposition='inside')
+fig.update_layout(
+    yaxis_title_font=dict(size=26),  # Y-axis title font size
+    yaxis=dict(tickfont=dict(size=20)),   # Y-axis tick labels font size
+)
 st.plotly_chart(fig)
 
 @st.cache_data

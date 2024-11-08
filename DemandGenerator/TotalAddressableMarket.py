@@ -84,7 +84,7 @@ with st.expander("Technical Constraints"):
     car_body_type = st.multiselect('Car Body Style CE', car_bodies,  ['AA', 'AB', 'AC', 'AD', 'AE', 'AF'])
     st.markdown("Check [this website](https://www.cartegrise.com/carte-grise-detail/carrosserie) for more information")
     min_engine_size, max_engine_size = st.select_slider('Range of Vehicle Engine Size (cm²)',
-                                                        options=np.array([i*100 for i in range(10, 1610)]),
+                                                        options=np.array([i*100 for i in range(10, 161)]),
                                                         value=[1000, 14000])
     min_lev_noise, max_lev_noise = st.select_slider('Range of Noise Level at Standstill (dB[A])', 
                                                     options=np.array([i for i in range(30, 121)]),
@@ -116,47 +116,55 @@ filter_steps.append(("Age","Total", df.shape[0]))
 # Engine Type
 df = df[df['energie'].isin(engine_type)]
 param["engine_type"] = engine_type
-filter_steps.append(("Engine Type","Age", df.shape[0]))
+filter_steps.append(("Energy","Age", df.shape[0]))
 # Geo
 df = df[(df['pays_titulaire'].isin(geo)) | (df['pays_titulaire'].isna())]
 param["pays"] = geo
-filter_steps.append(("Registration Country","Engine Type", df.shape[0]))
+filter_steps.append(("Holder Country","Energy", df.shape[0]))
 # Category
 df = df[df['categorie_vehicule'].isin(category)]
 param["category"] = category
-filter_steps.append(("Vehicle Category","Registration Country", df.shape[0]))
+filter_steps.append(("Vehicle Category","Holder Country", df.shape[0]))
 # Engine Power
 df = df[(df['puissance_net_maxi']<=max_ep) & (df['puissance_net_maxi']>=min_ep)]
 param["min_ep"] = min_ep
 param["max_ep"] = max_ep
-filter_steps.append(("Engine Power", "Vehicle Category", df.shape[0]))
+filter_steps.append(("Maximum Net Power", "Vehicle Category", df.shape[0]))
 # Poids a vide national
 df = df[(df['poids_a_vide_national']<=max_pv) & (df['poids_a_vide_national']>=min_pv)]
 param["min_pv"] = min_pv
 param["max_pv"] = max_pv
-filter_steps.append(("Weight","Engine Power", df.shape[0]))
+filter_steps.append(("Vehicle Mass in Running Order","Maximum Net Power", df.shape[0]))
 # Carroserie CE
 df = df[df['carrosserie_ce'].isin(car_body_type)]
 param["car_body_type"] = car_body_type
-filter_steps.append(("Car Body Type","Weight", df.shape[0]))
+filter_steps.append(("Vehicle Body","Vehicle Mass in Running Order", df.shape[0]))
 # Cylindree
 df = df[(df['cylindree']>=min_engine_size) & (df['cylindree']<=max_engine_size)]
 param["min_engine_size"] = min_engine_size
 param["max_engine_size"] = max_engine_size
-filter_steps.append(("Engine Size","Car Body Type", df.shape[0]))
+filter_steps.append(("Engine Displacement","Vehicle Body", df.shape[0]))
 # Niveau sonore
 df = df[(df['niv_sonore']>=min_lev_noise) & (df['niv_sonore']<=max_lev_noise)]
 param["min_lev_noise"] = min_lev_noise
 param["max_lev_noise"] = max_lev_noise
-filter_steps.append(("Noise Level","Engine Size", df.shape[0]))
+filter_steps.append(("Noise Level","Engine Displacement", df.shape[0]))
 # CO2
 df = df[(df['co2']>=min_CO2) & (df['co2']<=max_CO2)]
 param["min_CO2"] = min_CO2
 param["max_CO2"] = max_CO2
-filter_steps.append(("CO2 Emissions","Noise Level", df.shape[0]))
+filter_steps.append(("CO2 Emission Rate","Noise Level", df.shape[0]))
 
 filter_df = pd.DataFrame(filter_steps, columns=["Filter Step", "Previous Step", "Remaining Count"])
 fig = px.funnel(filter_df, y='Filter Step', x='Remaining Count')
+fig.update_layout(  
+    xaxis_title_font=dict(size=26),  # X-axis title font size
+    yaxis_title_font=dict(size=26),  # Y-axis title font size
+    xaxis=dict(tickfont=dict(size=20)),  # X-axis tick labels font size
+    yaxis=dict(tickfont=dict(size=20))   # Y-axis tick labels font size
+)
+fig.update_traces(textfont=dict(size=16), textposition='inside')
+
 fig.update_layout(xaxis_title='Number of filtered vehicles')
 st.plotly_chart(fig)
 
@@ -185,7 +193,7 @@ group_commune_df = df.groupby('code_commune_titulaire').count().iloc[:, :1]
 group_commune_df.columns.values[0]="Num Vehicles"
 
 df_merged = map_df.merge(group_commune_df, left_index=True, right_index=True).sort_values(by='Num Vehicles', ascending=False)    
-fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="carto-positron", zoom=5, center = {"lat": 45.5, "lon": 2}, color_continuous_scale='Greys')
+fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="open-street-map", zoom=5, center = {"lat": 45.5, "lon": 2}, color_continuous_scale='Greys', opacity=0.8)
 fig_map.update_traces(marker_line_width=0)
 
 st.plotly_chart(fig_map)
@@ -197,6 +205,7 @@ def group_by(df):
     return df
 
 group_df = group_by(df)
+# group_df.reset_index(inplace=True)
 subfig = make_subplots(specs=[[{"secondary_y": True}]])
 group_df['Cumulative Percentage'] = group_df.cumsum()/group_df.sum()*100
 
@@ -210,6 +219,8 @@ cumperc = st.number_input('How many percent of vehicle fleet that we want to cov
 subfig.add_traces(fig.data + pareto_line.data)
 subfig.layout.yaxis.title="Num Vehicles"
 subfig.layout.yaxis2.title="Cumulative Percentage"
+subfig.update_xaxes(title_text="Num TVVs", tickvals=list(range(0, group_df.shape[0], 500)), ticktext=[str(i) for i in range(0, group_df.shape[0])][::500])
+
 subfig.add_shape(type='line',
                 x0=0,
                 y0=cumperc,
@@ -219,6 +230,15 @@ subfig.add_shape(type='line',
                 xref='x',
                 yref='y2')
 subfig.layout.height = 800
+subfig.update_layout(
+    xaxis_title_font=dict(size=26),  # X-axis title font size
+    yaxis_title_font=dict(size=26),  # Y-axis title font size
+    yaxis2_title_font=dict(size=26),  # Y-axis title font size
+    xaxis=dict(tickfont=dict(size=20)),  # X-axis tick labels font size
+    yaxis=dict(tickfont=dict(size=20)),   # Y-axis tick labels font size
+    yaxis2=dict(tickfont=dict(size=20))   # Y-axis tick labels font size
+)
+
 st.plotly_chart(subfig)
 
 with st.expander("Show only the graph of cumulative percentage of vehicles vs. number of TVVs"):

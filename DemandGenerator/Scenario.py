@@ -66,7 +66,10 @@ for i, scenario in enumerate(scenarios, start=1):
 
 # Update layout
 fig.update_layout(title='Funnel Charts for Each Scenario', showlegend=False)
-
+fig.update_layout(
+    # title_font_size=24,  # Adjust the title font size
+    font=dict(size=18)  # Adjust the default font size for all text (including ticks)
+)
 # Show the plot
 st.plotly_chart(fig)
 
@@ -74,7 +77,42 @@ st.write("## Apply Bass Model")
 def bass_diff(N,t, p, q, M):
     return (p + q*N/M) * (M - N)
 plot_total = go.Figure()
+plot_total.update_layout(
+    xaxis=dict(
+        title="Year",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    yaxis=dict(
+        title="Total Demand",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    legend=dict(
+        font=dict(
+            size=20
+        )
+    )
+)
+
 plot_increment = go.Figure()
+plot_increment.update_layout(
+    xaxis=dict(
+        title="Year",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    yaxis=dict(
+        title="Demand per Year",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    legend=dict(
+        font=dict(
+            size=20
+        )
+    )
+)
 
 T_max = st.number_input("Enter the number of years to forecast", value=20, key="maxi_year")
 T = np.arange(0, T_max + 1)
@@ -93,6 +131,7 @@ for scenario in scenarios:
     dN = np.diff(N)
     plot_total.add_trace(go.Scatter(x=T, y=N, mode='lines', name=scenario))
     plot_increment.add_trace(go.Scatter(x=T[1:], y=dN, mode='lines', name=scenario))
+
     
 st.plotly_chart(plot_total)
 st.plotly_chart(plot_increment)
@@ -105,7 +144,44 @@ df_p_q.loc["word-of-mouth dominant", :] = [0.01, 0.50]
 df_p_q.loc["advertising dominant", :] = [0.05, 0.30]
 st.write("The following coefficients are used for the Bass Model:", df_p_q)
 plot_total_p_q = go.Figure()
+plot_total_p_q.update_layout(
+    xaxis=dict(
+        title="Year",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    yaxis=dict(
+        title="Total Demand",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    legend=dict(
+        font=dict(
+            size=20
+        )
+    )
+)
+
+
+
 plot_increment_p_q = go.Figure()
+plot_increment_p_q.update_layout(
+    xaxis=dict(
+        title="Year",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    yaxis=dict(
+        title="Demand per Year",
+        title_font=dict(size=26),
+        tickfont=dict(size=20)
+    ),
+    legend=dict(
+        font=dict(
+            size=20
+        )
+    )
+)
 for index, row in df_p_q.iterrows():
     p = row["p"]
     q = row["q"]
@@ -114,6 +190,7 @@ for index, row in df_p_q.iterrows():
     dN = np.diff(N)
     plot_total_p_q.add_trace(go.Scatter(x=T, y=N, mode='lines', name=index))
     plot_increment_p_q.add_trace(go.Scatter(x=T[1:], y=dN, mode='lines', name=index))
+
 st.plotly_chart(plot_total_p_q)
 st.plotly_chart(plot_increment_p_q)
 

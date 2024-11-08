@@ -764,7 +764,6 @@ with tab2:
         The vehicle dataframe is grouped by type_version_variante and calculates specific aggregations for each column in the group:
         - `poids_a_vide_national`, `puissance_net_maxi`, `co2`, and `Age`: Calculates the median value.
         - `carrosserie_ce`: Finds the most frequent (mode) value.
-        The `classe_env` is not kept as it is highly correlated with the column `Age`.
         """
 
         df_tvv = df_vehicle[["type_version_variante", "puissance_net_maxi", "poids_a_vide_national", "carrosserie_ce", "co2", "Age"]].groupby(by='type_version_variante').agg(

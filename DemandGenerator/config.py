@@ -29,7 +29,7 @@ current_year = 2024
 # The existing product data source
 source_path = r'C:\Users\zwu\Documents\Data\Vehicle\occitanie_cleaned_code_INSEE.csv'
 # The folder containing all the intermediate data for each step
-precharged_folder = r'C:\Users\zwu\Documents\Data\Vehicle\data_precharged'
+precharged_folder = r'C:\Users\zwu\Documents\StreamlitCode\DemandGenerator\data_precharged'
 executive_factor_folder = r'C:\Users\zwu\Documents\Data\ExecutiveFactors'
 
 def change_type(df_vehicles, to_numeric=['poids_a_vide_national','cylindree','niv_sonore','co2', 'puissance_net_maxi', 'Age']):

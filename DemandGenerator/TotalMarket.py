@@ -50,7 +50,9 @@ else:
 ## Select Columns of Interests from the Dataset
 """
 
-options = st.multiselect("Select the columns that you think relevant for estimating the demand", df.columns[2:], ["code_commune_titulaire","pays_titulaire", "marque", "date_premiere_immatriculation", "type_version_variante", "poids_a_vide_national", "categorie_vehicule", "carrosserie_ce", "cylindree", "puissance_net_maxi", "energie", "niv_sonore", "co2", "classe_env"])
+options = st.multiselect("Select the columns that you think relevant for estimating the demand", df.columns[2:], ["code_commune_titulaire","pays_titulaire", "marque", "date_premiere_immatriculation", "type_version_variante", "poids_a_vide_national", "categorie_vehicule", "carrosserie_ce", "cylindree", "puissance_net_maxi", "energie", "niv_sonore", "co2"])
+# The `classe_env` is not kept as it is highly correlated with the column `Age` which is calculated from the first registration date of vehicle in the SIV.
+
 param["columns_kept"] = options
 
 @st.cache_data
@@ -110,10 +112,10 @@ st.markdown(
 map_df = create_map()
 group_commune_df = df_selected.groupby('code_commune_titulaire').count().iloc[:, :1]
 group_commune_df.columns.values[0]="Num Vehicles"
-group_brand_df = df_selected.groupby(['marque', 'type_version_variante', 'code_commune_titulaire']).count().iloc[:, :1]
+group_brand_df = df_selected.groupby(['type_version_variante', 'code_commune_titulaire']).count().iloc[:, :1]
 group_brand_df.columns.values[0]="Num Vehicles"
 group_brand_df.sort_values(by='Num Vehicles', ascending=False,inplace=True)
-group_brand_df = group_brand_df.reset_index(level=['marque','type_version_variante', 'code_commune_titulaire'])
+group_brand_df = group_brand_df.reset_index(level=['type_version_variante', 'code_commune_titulaire'])
 
 df_merged = map_df.merge(group_commune_df, left_index=True, right_index=True).sort_values(by='Num Vehicles', ascending=False)    
 
@@ -124,10 +126,10 @@ geo_filters = st.multiselect(
     np.array(df_merged.index[:n])
 )
 
-fig = px.bar(group_brand_df[group_brand_df['code_commune_titulaire'].isin(geo_filters)], x='type_version_variante', y='Num Vehicles', hover_data=['code_commune_titulaire', 'Num Vehicles','marque'])
+fig = px.bar(group_brand_df[group_brand_df['code_commune_titulaire'].isin(geo_filters)], x='type_version_variante', y='Num Vehicles', hover_data=['code_commune_titulaire', 'Num Vehicles'])
 fig.update_xaxes(range=(-.5,15))
 df_merged = df_merged[df_merged.index.isin(geo_filters)]
-fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="carto-positron", zoom=5.5, center = {"lat": 44, "lon": 2}, color_continuous_scale='Greys')
+fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='Num Vehicles', locations=df_merged.index, mapbox_style="open-street-map", zoom=5.5, center = {"lat": 44, "lon": 2}, color_continuous_scale='Greys', opacity=0.9)
 fig_map.update_traces(marker_line_width=0)
 col1, col2 = st.columns([1, 1.5])
 
@@ -168,7 +170,7 @@ with col2:
                         )   
 if brand_filters:
     group_age_df = group_age_df[group_age_df['marque'].isin(brand_filters)]
-group_age_df = group_age_df[(group_age_df.index>min_age) & (group_age_df.index<max_age)]
+group_age_df = group_age_df[(group_age_df.index>=min_age) & (group_age_df.index<=max_age)]
 # if brand_filters != None:
 #     group_commune_df_filtered = df_selected[df_selected['marque'].isin(brand_filters)]
 # else:
