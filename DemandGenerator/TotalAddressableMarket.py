@@ -214,7 +214,7 @@ fig = px.bar(group_df, y='Num Vehicles')
 pareto_line = px.scatter(group_df, y='Cumulative Percentage')
 pareto_line.update_traces(yaxis="y2")
 st.write("## Model Selection")
-cumperc = st.number_input('How many percent of vehicle fleet that we want to cover?', value=50, step=5, max_value=100, min_value=0, format='%i')
+cumperc = st.number_input('How many percent of vehicle fleet that we want to cover?', value=30, step=5, max_value=100, min_value=0, format='%i')
 
 subfig.add_traces(fig.data + pareto_line.data)
 subfig.layout.yaxis.title="Num Vehicles"

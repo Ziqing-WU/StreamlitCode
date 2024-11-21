@@ -24,6 +24,8 @@ from sklearn.metrics import silhouette_score
 import re
 import pickle
 from scipy.integrate import odeint
+import gurobipy as gp
+import math
 
 current_year = 2024
 # The existing product data source
@@ -37,3 +39,39 @@ def change_type(df_vehicles, to_numeric=['poids_a_vide_national','cylindree','ni
     for col in to_numeric:
         df_vehicles[col] = pd.to_numeric(df_vehicles[col], errors='coerce')
     return df_vehicles
+
+def create_map():
+    # This file comes from the geoservices product Admin Express COG 2022
+    fp = rf'{executive_factor_folder}\Ref-1-CodeGeo\COMMUNE_OCCITANIE.shp'
+    map_df = gpd.read_file(fp)
+    # map_df.to_crs(pyproj.CRS.from_epsg(4326), inplace=True)
+    return map_df[['INSEE_COM', 'geometry']].set_index('INSEE_COM')
+
+
+def get_communes_by_population(pop):
+    df = pd.read_csv(rf"{executive_factor_folder}\donnees_communes_population.csv", encoding='utf-8', sep=';')
+    geo = pd.read_csv(rf"{executive_factor_folder}\Ref-1-CodeGeo\GeoPosition.csv")
+    df_occitanie = df[df['REG']==76]
+    df_occitanie = df_occitanie[["COM", "Commune", "PMUN"]]
+    df_occitanie = df_occitanie.join(geo.set_index('Code Commune'), on='COM')
+    df_occitanie = df_occitanie[df_occitanie['PMUN']>=pop]
+    return df_occitanie
+
+'''
+Calculate the distance between two points on the Earth's surface with longitude and latitude in degrees
+'''
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat/2) * math.sin(dlat/2) + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2) * math.sin(dlon/2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    d = R * c
+    return d
+
+'''
+Calculate the cumulative distribution function of Weibull with parameters proposed by Held et al. 2021
+'''
+def calculate_cum_distribution_function(tau, beta_shape=6, gamma_mean=15.2):
+    lamda = gamma_mean / math.gamma(1+1/beta_shape)
+    return 1- np.exp(-(tau/lamda)**beta_shape)

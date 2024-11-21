@@ -18,7 +18,7 @@ st.markdown(
     '''
 )
 st.write("## Select the Scenarios")
-scenarios = st.multiselect("Select the scenarios to be analyzed", os.listdir("scenarios"), default=os.listdir("scenarios"))
+scenarios = st.multiselect("Select the scenarios to be analyzed", os.listdir("scenarios"), default=["TVV_10", "TVV_20", "TVV_30"])
 df = pd.DataFrame(columns=scenarios)
 parameters = {}
 df_TM = {}
@@ -26,6 +26,7 @@ df_TAM = {}
 df_SAM = {}
 df_DEM = {}
 df_demand = {}
+df_demand_commune = {}
 
 for scenario in scenarios:
     with open(f"scenarios/{scenario}/{current_year}_vehicle_list_TM.pickle", "rb") as f:
@@ -58,7 +59,7 @@ for i, scenario in enumerate(scenarios, start=1):
         go.Funnel(
             y=df.index,
             x=df[scenario],
-            textinfo="value+percent initial"
+            textinfo="value+percent previous"
         ),
         row=1,
         col=i
@@ -124,6 +125,7 @@ for scenario in scenarios:
     df_vehicle = df[df["retrofit_service"]]
     df_vehicle['retrofit_service'] = df_vehicle['retrofit_service'].astype(int)
     df_demand[scenario] = df_vehicle.groupby(by = ["code_commune_titulaire", "type_version_variante"]).agg({"retrofit_service": "sum"}).reset_index()
+    df_demand_commune[scenario] = df_vehicle.groupby(by = ["code_commune_titulaire"]).agg({"retrofit_service": "sum"}).reset_index()
 
     M_total = df_demand[scenario]["retrofit_service"].sum()
     N = odeint(bass_diff, N0, T, args=(p,q,M_total)).flatten()
@@ -151,7 +153,7 @@ plot_total_p_q.update_layout(
         tickfont=dict(size=20)
     ),
     yaxis=dict(
-        title="Total Demand",
+        title="Cumulative Demand",
         title_font=dict(size=26),
         tickfont=dict(size=20)
     ),
@@ -172,7 +174,7 @@ plot_increment_p_q.update_layout(
         tickfont=dict(size=20)
     ),
     yaxis=dict(
-        title="Demand per Year",
+        title="Annual Demand",
         title_font=dict(size=26),
         tickfont=dict(size=20)
     ),
@@ -182,27 +184,43 @@ plot_increment_p_q.update_layout(
         )
     )
 )
-for index, row in df_p_q.iterrows():
-    p = row["p"]
-    q = row["q"]
-    M_total = df_demand[scenario]["retrofit_service"].sum()
-    N = odeint(bass_diff, N0, T, args=(p,q,M_total)).flatten()
-    dN = np.diff(N)
-    plot_total_p_q.add_trace(go.Scatter(x=T, y=N, mode='lines', name=index))
-    plot_increment_p_q.add_trace(go.Scatter(x=T[1:], y=dN, mode='lines', name=index))
+
+colors = ['#636EFA',
+    '#EF553B',
+    '#00CC96',
+    '#AB63FA',
+    '#FFA15A',
+    '#19D3F3',
+    '#FF6692',
+    '#B6E880',
+    '#FF97FF',
+    '#FECB52']
+color_scenario = {scenario: colors[i] for i, scenario in enumerate(scenarios)}
+pattern = ['solid', 'dot', 'dash', 'longdash', 'dashdot', 'longdashdot']
+pattern_dfpq = {index: pattern[i] for i, index in enumerate(df_p_q.index)}
+for scenario in scenarios:
+    for index, row in df_p_q.iterrows():
+        p = row["p"]
+        q = row["q"]
+        M_total = df_demand[scenario]["retrofit_service"].sum()
+        N = odeint(bass_diff, N0, T, args=(p,q,M_total)).flatten()
+        dN = np.diff(N)
+        plot_total_p_q.add_trace(go.Scatter(x=T, y=N, mode='lines', name=scenario+" "+index, line=dict(color=color_scenario[scenario], dash=pattern_dfpq[index])))
+        plot_increment_p_q.add_trace(go.Scatter(x=T+1, y=dN, mode='lines', name=scenario+" "+index, line=dict(color=color_scenario[scenario], dash=pattern_dfpq[index])))
 
 st.plotly_chart(plot_total_p_q)
 st.plotly_chart(plot_increment_p_q)
 
-st.write("## Generate the demand for each scenario")
 
+st.write("## Generate the demand for each scenario")
+# st.write(df_demand_commune)
 if st.button("Download the demand for each scenario"):
     df_demand_p_q = {}
     for scenario in scenarios:
         for index, row in df_p_q.iterrows():
             p = row["p"]
             q = row["q"]
-            for index,row in df_demand[scenario].iterrows():
+            for index,row in df_demand_commune[scenario].iterrows():
                 M = row["retrofit_service"]
                 N0 = [0]
                 N = odeint(bass_diff, N0, T, args=(p,q,M)).flatten()
@@ -226,12 +244,12 @@ if st.button("Download the demand for each scenario"):
                     for idx in sorted_indices:
                         if deficit <= 0:
                             break
-                        if rounded_dN[idx] > 0:
-                            rounded_dN[idx] += 1
-                            deficit -= 1
-                df_demand[scenario].loc[index, np.arange(1, T_max + 1)] = rounded_dN
-            df_demand_p_q[scenario + "_p=" + str(p) + "_q=" + str(q) ] = df_demand[scenario]
+                        rounded_dN[idx] += 1
+                        deficit -= 1
+                df_demand_commune[scenario].loc[index, np.arange(1, T_max + 1)] = rounded_dN
+            df_demand_p_q[scenario + "_p=" + str(p) + "_q=" + str(q) ] = df_demand_commune[scenario]
     
     with open("demand.pickle", "wb") as f:
         pickle.dump(df_demand_p_q, f)
 
+    st.write(df_demand_p_q)

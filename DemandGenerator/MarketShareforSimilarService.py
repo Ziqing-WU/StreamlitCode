@@ -48,7 +48,7 @@ with st.expander("Show status of data collection for each executive factor"):
 | E-EPTE-5    | Financial Incentives                      |                                                                |                                                                                                                       |             |            | https://www.phoenixmobility.co/2020/10/19/subventions-retrofit-mode-emploi/                                                                                                                             | :clock1:           | geo |
 | E-EPTE-6    | Existing Demo-Projects                    |                                                                |                                                                                                                       |             |            |                                                                                                                                                                                                         | :question:          | geo |
 | Ener-EPTE-1 | Sustainable Electricity Production        | Share of sustainable electricity in net electricity generation | Part de la production d'électricité renouvelable dans la consommation totale d'électricité                            | Région      | 2018       | https://www.insee.fr/fr/statistiques/4505239 i038                                                                                                                                                       | :white_check_mark: | geo |
-| T-P-1       | Commuting Behavior                        |                                                                | Distance médiane des navettes domicile-Travail pour les actifs occupés, pour les navetteurs (en km)*                   | Commune     | 2018       | https://www.insee.fr/fr/statistiques/4505239 i061b act                                                                                                                                                  | :white_check_mark: | geo |
+| T-C-1       | Commuting Behavior                        |                                                                | Distance médiane des navettes domicile-Travail pour les actifs occupés, pour les navetteurs (en km)*                   | Commune     | 2018       | https://www.insee.fr/fr/statistiques/4505239 i061b act                                                                                                                                                  | :white_check_mark: | geo |
 | T-EPTE-1    | Car Density                               | number of cars / 1000 persons                                  |                                                                                                                       | Commune     | 2021, 2019 | parc auto: https://www.statistiques.developpement-durable.gouv.fr/donnees-sur-le-parc-automobile-francais-au-1er-janvier-2021 population: https://www.insee.fr/fr/statistiques/6011070?sommaire=6011075 | :clock1:           | geo |
  
  \* : Distance médiane de déplacement est la distance de déplacement entre le domicile et le lieu de travail parcourue pour les 50 % des déplacements domicile/travail les plus courts. La distance est calculée pour chaque individu comme la distance parcourue en automobile pour se rendre de sa commune de résidence à la commune où il travaille.
@@ -106,7 +106,7 @@ def create_df_features(folder_path = executive_factor_folder):
     dict_df: a dictionary of dataframes containing all features, where keys are geographical codes and values are feature values.
     """
 
-    d = {'Num': ['D-C-1', 'D-EPTE-1', 'D-EPTE-2', 'Env-P-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'Env-EPTE-1', 'E-P-1', 'E-P-2', 'E-C-1', 'E-EPTE-1', 'E-EPTE-2', 'E-EPTE-3', 'E-EPTE-4', 'E-EPTE-5', 'E-EPTE-6', 'Ener-EPTE-1', 'T-P-1', 'T-EPTE-1'],
+    d = {'Num': ['D-C-1', 'D-EPTE-1', 'D-EPTE-2', 'Env-P-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'Env-EPTE-1', 'E-P-1', 'E-P-2', 'E-C-1', 'E-EPTE-1', 'E-EPTE-2', 'E-EPTE-3', 'E-EPTE-4', 'E-EPTE-5', 'E-EPTE-6', 'Ener-EPTE-1', 'T-C-1', 'T-EPTE-1'],
     'Name': ['GDP/Capita', 'Population Density', 'Number of Households with Internet Access', 'Emission Reduction', 'Average Temperature in Summer', 'Average Temperature in Winter', 'Attitude towards Climate Change', 'ZFE-m', 'Acquisition Fee Reduction', 'Garage Accessibility', 'Household Disposable Income', 'Charging Point Accessibility', 'Access to E-Lanes', 'Fuel Cost Saving vs. Gasoline', 'Fuel Cost Saving vs. Diesel', 'Financial Incentives', 'Existing Demo-Projects', 'Sustainable Electricity Production', 'Commuting Behavior', 'Car Density'],
     'Level': ['REG', 'COM', 'PAYS', '', 'DEP', 'DEP', 'DEP', 'COM', '', '', 'DEP', 'COM', '', '', '', '', '', 'REG', 'COM', 'COM'],
     'Status': ['Ready', 'Ready', 'Pending', 'Pending', 'Ready', 'Ready', 'Ready', 'In Progress', 'Pending', 'In Progress', 'Ready', 'Ready', 'Pending', 'In Progress', 'In Progress', 'In Progress', 'Pending', 'Ready', 'Ready', 'In Progress']}
@@ -137,7 +137,7 @@ def create_df_features(folder_path = executive_factor_folder):
     dict_df['E-C-1'].rename(columns={'codgeo':'DEP', 'revenu_decl_median_uc_2018': 'E-C-1'}, inplace=True)
     dict_df['E-EPTE-1'].rename(columns={'code_insee_commune': 'COM', 'Nombre_EV_charge_2022': 'E-EPTE-1'}, inplace=True)
     dict_df['Ener-EPTE-1'].rename(columns={'codgeo': 'REG', 'part_elec_renouv_2018': 'Ener-EPTE-1'}, inplace=True)
-    dict_df['T-P-1'].rename(columns={'codgeo': 'COM', 'med_dist_navette_actif_2018': 'T-P-1'}, inplace=True)
+    dict_df['T-C-1'].rename(columns={'codgeo': 'COM', 'med_dist_navette_actif_2018': 'T-C-1'}, inplace=True)
     
     # change datatype for geographical code
     dict_df['D-C-1']['REG'] = dict_df['D-C-1']['REG'].astype(str).str.zfill(2)
@@ -265,7 +265,7 @@ with tab1:
         st.markdown(
                 """
                 #### Implication of business rules
-                - T-P-1 Commuting Behavior: > 50 km
+                - T-C-1 Commuting Behavior: > 50 km
 
                 Cities concerned:
                 """
@@ -274,14 +274,14 @@ with tab1:
         with col1:
             base_commune = find_geo_names('COM')
             base_commune.dropna(inplace=True)
-            t_p_1 = base_commune.merge(dict_df['T-P-1'], how='left', left_index=True, right_index=True)
-            delete_communes = t_p_1[t_p_1['T-P-1']>50]
+            t_p_1 = base_commune.merge(dict_df['T-C-1'], how='left', left_index=True, right_index=True)
+            delete_communes = t_p_1[t_p_1['T-C-1']>50]
             st.dataframe(delete_communes)
 
         with col2:
             gdf = create_gdf('COM')
             df_merged = gdf.merge(delete_communes, left_index=True, right_index=True)    
-            fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='T-P-1', locations=df_merged.index, mapbox_style="carto-positron", opacity=0.5, zoom=4, center = {"lat": 47, "lon": 2}, color_continuous_scale='Greys', hover_data=['NCC'])
+            fig_map = px.choropleth_mapbox(df_merged, geojson = df_merged['geometry'], color='T-C-1', locations=df_merged.index, mapbox_style="carto-positron", opacity=0.5, zoom=4, center = {"lat": 47, "lon": 2}, color_continuous_scale='Greys', hover_data=['NCC'])
             st.plotly_chart(fig_map)
 
         af_busi_base_commune = base_commune[~base_commune.index.isin(delete_communes.index)]
@@ -306,7 +306,7 @@ with tab1:
         
         agg_df = agg_df(dict_df, df_features, af_busi_base_commune)
         agg_df['E-EPTE-1'] = agg_df['E-EPTE-1'].fillna(0)
-        columns = st.multiselect('Select features to be included in the following display', [i for i in dict_df.keys()], ['D-C-1', 'D-EPTE-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'E-C-1', 'E-EPTE-1', 'T-P-1'])
+        columns = st.multiselect('Select features to be included in the following display', [i for i in dict_df.keys()], ['D-C-1', 'D-EPTE-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'E-C-1', 'E-EPTE-1', 'T-C-1'])
         agg_df = agg_df[['NCC', 'DEP', 'REG']+columns]
 
         col1, col2 = st.columns([1,2])
@@ -331,7 +331,7 @@ with tab1:
             '''
             )
         
-        agg_df = agg_df[['NCC', 'DEP', 'REG', 'D-C-1', 'D-EPTE-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'E-C-1', 'E-EPTE-1', 'T-P-1']]
+        agg_df = agg_df[['NCC', 'DEP', 'REG', 'D-C-1', 'D-EPTE-1', 'Env-P-2', 'Env-P-3', 'Env-C-1', 'E-C-1', 'E-EPTE-1', 'T-C-1']]
         st.markdown(
             '''
             #### Scaling and Principal Component Analysis (PCA)
@@ -394,12 +394,23 @@ with tab1:
         pca_2d['dc1'] = agg_df['D-C-1']
         pca_2d.columns = ['PC1', 'PC2', 'NCC', 'REG', 'dc1']
         
-        st.plotly_chart(
-            px.scatter(pca_2d, x='PC1', y='PC2', hover_data=[pca_2d.index, 'NCC', 'REG'], opacity=0.5, color='REG', title='PCA per Region')
+        fig = px.scatter(pca_2d, x='PC1', y='PC2', hover_data=[pca_2d.index, 'NCC', 'REG'], opacity=0.5, color='REG', title='PCA per Region')
+        fig.update_layout(
+            xaxis_title_font=dict(size=26),  # X-axis title font size
+            yaxis_title_font=dict(size=26),  # Y-axis title font size
+            xaxis=dict(tickfont=dict(size=20)),  # X-axis tick labels font size
+            yaxis=dict(tickfont=dict(size=20)),   # Y-axis tick labels font size
+            legend=dict(title_font=dict(size=20), font=dict(size=16)),  # Legend font size
         )
+        fig.update_layout(yaxis_scaleanchor="x", width=600,               # Set width to desired value
+            height=600  )
+
+
+        st.plotly_chart(fig)
+
         outliers_1st_pca = ['75056', '69123', '31555', '92044', '59350']
 
-        outliers_1st_pca = st.multiselect("Select points to be eliminated for next PCA analysis", outliers_1st_pca, ['75056', '69123', '31555', '92044'])
+        outliers_1st_pca = st.multiselect("Select points to be eliminated for next PCA analysis", outliers_1st_pca, ['75056', '69123', '31555', '92044', '59350'])
 
         st.markdown(
             '''
@@ -412,6 +423,10 @@ with tab1:
         
         agg_df_d = agg_df.iloc[:,3:]
         scaled_agg_df_d = scaler.fit_transform(agg_df_d)
+        st.write("The correlation matrix of the scaled data is:")
+        corr_matrix = pd.DataFrame(scaled_agg_df_d).corr()
+        st.write(corr_matrix)
+
 
         pca = PCA()
         pca.fit(scaled_agg_df_d)
@@ -439,6 +454,20 @@ with tab1:
 
         dict_score = find_num_clusters(pca_nd)
         st.write("The silhouette scores for each number of clusters are", dict_score)
+        x_values = list(dict_score.keys())
+        y_values = list(dict_score.values())
+
+        # Creating the bar chart
+        fig = go.Figure(data=[go.Bar(x=x_values, y=y_values)])
+        fig.update_layout(
+            xaxis_title="Number of clusters",
+            yaxis_title="Silhouette score",
+            xaxis_title_font=dict(size=26),  # X-axis title font size
+            yaxis_title_font=dict(size=26),  # Y-axis title font size
+            xaxis=dict(tickfont=dict(size=20)),  # X-axis tick labels font size
+            yaxis=dict(tickfont=dict(size=20)),   # Y-axis tick labels font size
+        )
+        st.plotly_chart(fig)
 
         n=int(st.number_input("The number of clusters chosen is ", value=7))
         kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(pca_nd)
@@ -494,14 +523,19 @@ with tab1:
         ))
         fig.update_layout(
             xaxis=dict(
-                title='Class / Code Commune',
+                title=dict(text='Cluster / Commune Code', font = dict(size = 26)),
                 type='category',
                 categoryorder='array',
-                categoryarray=x_categories
+                categoryarray=x_categories,
+                tickfont=dict(size=20)  # X-axis tick labels font size
             ),
-            yaxis_title=feature,
-            showlegend=False
+            yaxis=dict(
+                title=dict(text=feature,font = dict(size = 26)),
+                tickfont=dict(size=20)  # Y-axis tick labels font size
+            ),
+            showlegend=False,
         )
+
         st.plotly_chart(fig)
         cluster_stats = agg_df.groupby('class')[feature].agg(
             median='median',
@@ -606,7 +640,7 @@ with tab1:
                         [4, 2, 4, 1/2, 1/4, 1/5, 1, 2],
                         [3, 1, 3, 1/3, 1/5, 1/6, 1/2, 1]])
             df_a = pd.DataFrame(a)
-            df_a.index=["Env-P-2", "Env-P-3", "Env-C-1", "E-C-1", "E-EPTE-1", "T-P-1", "D-C-1", "D-EPTE-1"]
+            df_a.index=["Env-P-2", "Env-P-3", "Env-C-1", "E-C-1", "E-EPTE-1", "T-C-1", "D-C-1", "D-EPTE-1"]
             df_a.columns=df_a.index
             df_a
         
@@ -671,7 +705,7 @@ with tab1:
         dict_pref_alt = {}
         for key in dict_pref_alt_keys:
             df = pd.concat([agg_df.groupby('class')[key].median(),agg_df_outliers_1st_pca[[key]]])
-            if key in ["Env-P-2", "Env-C-1", "T-P-1", "D-EPTE-1"]:
+            if key in ["Env-P-2", "Env-C-1", "T-C-1", "D-EPTE-1"]:
                 matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="lower")
             else:
                 matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="higher")
@@ -773,24 +807,54 @@ with tab2:
             "co2": 'median',
             "Age": "median"}
         )
-        st.write(df_tvv)
+        st.write(df_tvv, df_tvv.shape)
+        for col in df_tvv.columns:
+            if pd.api.types.is_numeric_dtype(df_tvv[col]):
+                # Plot histogram for numerical columns
+                fig = px.histogram(df_tvv, x=col, nbins=20, title=f"Distribution of {col}")
+                st.plotly_chart(fig)
+                st.write(f"Mean: {df_tvv[col].mean()}")
+            else:
+                # Plot bar plot for categorical columns
+                value_counts = df_tvv[col].value_counts().reset_index()
+                value_counts.columns = [col, 'count']  # Rename columns for consistency
+                fig = px.bar(value_counts, x=col, y='count', title=f"Distribution of {col}")
+                st.plotly_chart(fig)
+                st.write(f"Mode: {df_tvv[col].mode().iloc[0]}")
+
+        
         """
         #### Encoding
         This encoding step assigns numeric scores to categorical variables to make them suitable for analysis. 
         For `carrosserie_ce`, we use label encoding to assign unique integer codes to each category, making the data ready for further quantitative analysis.
         Here is its encoding dictionary. 
         """
-        dict_carrosserie = dict(enumerate(df_tvv['carrosserie_ce'].astype('category').cat.categories))
+        dict_carrosserie = {"AA": 0, "AB": 1, "AC":2, "AD": 3, "AE":4, "AF": 5}
         st.write(dict_carrosserie)
-        df_tvv['carrosserie_ce'] = df_tvv['carrosserie_ce'].astype('category').cat.codes
+        df_tvv['carrosserie_ce'] = df_tvv['carrosserie_ce'].map(dict_carrosserie)
         st.write(df_tvv)
         
-        scaler = StandardScaler()
+        scaler = RobustScaler()
         df_tvv_scaled = pd.DataFrame(scaler.fit_transform(df_tvv), columns=df_tvv.columns)
 
         dict_score = find_num_clusters(df_tvv_scaled)
         st.write("The silhouette scores for each number of clusters are", dict_score)
-        n=int(st.number_input("The number of clusters chosen here is ", value=10))
+        x_values = list(dict_score.keys())
+        y_values = list(dict_score.values())
+
+        # Creating the bar chart
+        fig = go.Figure(data=[go.Bar(x=x_values, y=y_values)])
+        fig.update_layout(
+            xaxis_title="Number of clusters",
+            yaxis_title="Silhouette score",
+            xaxis_title_font=dict(size=26),  # X-axis title font size
+            yaxis_title_font=dict(size=26),  # Y-axis title font size
+            xaxis=dict(tickfont=dict(size=20)),  # X-axis tick labels font size
+            yaxis=dict(tickfont=dict(size=20)),   # Y-axis tick labels font size
+        )
+        st.plotly_chart(fig)
+
+        n=int(st.number_input("The number of clusters chosen here is ", value=4))
         kmeans = KMeans(n_clusters = n, init='k-means++', random_state=0).fit(df_tvv_scaled)
         df_tvv_scaled["class"] = kmeans.labels_
         pca=PCA()
@@ -845,23 +909,15 @@ with tab2:
                 matrix, matrix_index = generate_pairwise_matrix_from_data(df, preference="higher")
             if key in ["carrosserie_ce"]:
                 df = df.astype(str)
-                preference_values = {
-                    ('5', '5'): 1,
-                    ('5', '2'): 3,
-                    ('5', '1'): 5,
-                    ('2', '5'): 1/3,
-                    ('2', '2'): 1,
-                    ('2', '1'): 3,
-                    ('1', '5'): 1/5,
-                    ('1', '2'): 1/3,
-                    ('1', '1'): 1
-                }
+
+                preference_values = pd.DataFrame([[1, 3, 5, 7, 9, 9], [1/3, 1, 3, 5, 7, 7], [1/5, 1/3, 1, 3, 5, 5], [1/7, 1/5, 1/3, 1, 3, 3], [1/9, 1/7, 1/5, 1/3, 1, 2], [1/9, 1/7, 1/5, 1/3, 1/2, 1]], index=["5", "2", "1", "0", "3", "4"], columns=["5", "2", "1", "0", "3", "4"])
+
                 matrix = np.zeros((len(df), len(df)))
                 for i in range(len(df)):
                     for j in range(len(df)):
                         type_i = df.loc[i, 'carrosserie_ce']
                         type_j = df.loc[j, 'carrosserie_ce']
-                        preference = preference_values.get((type_i, type_j),1)
+                        preference = preference_values.loc[type_i, type_j]
                         matrix[i,j] = preference
                 matrix_index = df.index
             dict_pref_alt[key] = pd.DataFrame(matrix, columns = matrix_index, index = matrix_index)

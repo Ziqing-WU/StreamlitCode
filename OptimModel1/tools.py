@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 from scipy.integrate import odeint
 import folium
-from streamlit_folium import folium_static
+# from streamlit_folium import folium_static
 from folium.plugins import MarkerCluster
 
 

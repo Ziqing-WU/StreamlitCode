@@ -6,12 +6,11 @@ st.set_page_config(
     initial_sidebar_state='auto'
 )
 
-def page1():
-    st.write(st.session_state.foo)
+
 
 pages = {
     "Demand": [
-        st.Page("Intro.py", title="Home", icon='🏠'),
+        st.Page("Intro.py", title="Introduction", icon='🏠'),
         st.Page("TotalMarket.py",title="Total Market", icon='🌕'),
         st.Page("TotalAddressableMarket.py", title="Total Addressable Market", icon='🌔'),
         st.Page("ServiceableAvailableMarket.py", title="Serviceable Addressable Market", icon='🌓'),
@@ -20,7 +19,8 @@ pages = {
         st.Page("Scenario.py", title="Scenario Analysis", icon='📊')
     ],
     "Supply": [
-        st.Page(page1)
+        st.Page("IntroSupply.py", title="Introduction", icon='🏠'),
+        st.Page("DataPrep.py", title="Data Input", icon='🔢'),
     ]
 }
 
