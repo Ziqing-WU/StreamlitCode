@@ -1,8 +1,30 @@
 from config import *
 
+st.title('Data Preparation')
+
+with st.sidebar:
+    """
+    Navigation
+
+    [Introduction](#introduction)
+
+    [Sets](#sets)
+
+    [Parameters](#parameters)
+    - [Demand](#demand)
+    - [Distance](#distance)
+    - [Weights](#weights)
+    - [Facility Capacities](#facility-capacities)
+    - [Activation Footprint](#activation-footprint)
+    - [Unit Operation Footprint](#unit-operation-footprint)
+    - [Transportation](#transportation)
+    - [Lost Order Footprint](#lost-order-footprint)
+    """
+
 with open("demand.pickle", "rb") as f:
     demand = pickle.load(f)
 
+collab = st.radio("Select the collaborative strategy", ["Integrated", "Together", "Hyperconnected"], index=0)
 st.write("# Sets")
 st.write(f"""
 We consider that the potential locations for all the facilities are the same. These are selected based on the population of the communes.
@@ -25,10 +47,14 @@ $P = [p]$
 
 We suppose that the time horizon for retrofitting services to be 20 years, which is used as the planning horizon for the network design.
 
-$T = [1, 2, 3, ..., 20]$
+$T = [1, 2, 3, ..., 20]$ for integrated and together scenario
+
+$T = [1, 2, 3, ..., 240]$ for hyperconnected scenario
 """)
 P = ["p"]
 T = [i for i in range(1, 21)]
+if collab == "Hyperconnected":
+    T = [i for i in range(1, 241)]
 
 map_df = pd.read_csv(rf'{executive_factor_folder}\Ref-1-CodeGeo\GeoPosition.csv',
                      dtype={
@@ -53,6 +79,74 @@ demand_scenario = demand[scenario]
 st.write(f"The number of demand points is {len(demand_scenario)}")
 fig = px.scatter_mapbox(demand_scenario, lat="Latitude", lon="Longitude", size="Number of Vehicles", mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2}, color_continuous_scale='Greys')
 fig_line = px.line(x=demand_scenario.sum().index[2:-2], y=demand_scenario.sum().values[2:-2], title='Total Demand', labels={'x':'Year', 'y':'Number of Vehicles'})
+
+# if collab == "Hyperconnected":
+#     st.write(demand_scenario)
+#     monthly_weights = np.array([7, 6, 8, 9, 8, 8, 7, 7, 8, 7, 9, 6])
+#     monthly_weights = monthly_weights / monthly_weights.sum()
+#     annual_columns = [i for i in range(1, 21)]
+#     # Melt the dataframe to long format for annual demands
+#     demand_scenario = demand_scenario.melt(id_vars=['code_commune_titulaire', 'Number of Vehicles', 
+#                             'Longitude', 'Latitude'], 
+#                     value_vars=annual_columns,
+#                     var_name='Year', 
+#                     value_name='Annual_Demand')
+
+#     # Convert 'Year' to integer
+#     demand_scenario['Year'] = demand_scenario['Year'].astype(int)
+#     st.write(demand_scenario)
+#     # Repeat each row 12 times for 12 months
+#     demand_scenario_expanded = demand_scenario.loc[demand_scenario.index.repeat(12)].reset_index(drop=True)
+
+#     # Assign month numbers (1 to 12)
+#     demand_scenario_expanded['Month'] = np.tile(np.arange(1, 13), len(demand_scenario))
+
+#     # Assign corresponding monthly weights
+#     demand_scenario_expanded['Monthly_Weight'] = np.tile(monthly_weights, len(demand_scenario))
+
+#     # Calculate monthly demand
+#     demand_scenario_expanded['Monthly_Demand'] = demand_scenario_expanded['Annual_Demand'] * demand_scenario_expanded['Monthly_Weight']
+#     st.write(demand_scenario_expanded)
+
+#     # Floor the monthly demands
+#     demand_scenario_expanded['Monthly_Demand_Floor'] = np.floor(demand_scenario_expanded['Monthly_Demand']).astype(int)
+
+#     # Calculate the remaining demand to distribute
+#     demand_scenario_expanded['Remaining'] = demand_scenario_expanded['Annual_Demand'] - demand_scenario_expanded.groupby(
+#         ['code_commune_titulaire', 'Year'])['Monthly_Demand_Floor'].transform('sum')
+
+#     # Calculate the fractional parts
+#     demand_scenario_expanded['Fraction'] = demand_scenario_expanded['Monthly_Demand'] - np.floor(demand_scenario_expanded['Monthly_Demand'])
+
+#     # Step 4: Sort the dataframe to prioritize months with higher fractional parts
+#     demand_scenario_expanded = demand_scenario_expanded.sort_values(
+#         by=['code_commune_titulaire', 'Year', 'Fraction'], ascending=[True, True, False]
+#     ).reset_index(drop=True)
+
+#     # Step 5: Assign the remaining demand
+#     def distribute_remaining(group):
+#         remaining = group['Remaining'].iloc[0]
+#         if remaining > 0:
+#             group.loc[group.index[:remaining], 'Monthly_Demand_Floor'] += 1
+#         return group
+
+#     demand_scenario_expanded = demand_scenario_expanded.groupby(['code_commune_titulaire', 'Year']).apply(distribute_remaining).reset_index(drop=True)
+
+#     # Step 6: Rename the final monthly demand column
+#     demand_scenario_expanded['Monthly_Demand_Final'] = demand_scenario_expanded['Monthly_Demand_Floor']
+#     st.write(demand_scenario_expanded)
+
+#     # Drop intermediate columns
+#     df_long_expanded = df_long_expanded.drop(['Monthly_Demand', 'Monthly_Demand_Floor', 'Remaining', 'Fraction'], axis=1)
+
+
+
+
+
+
+    
+
+
 col1, col2 = st.columns(2)
 with col1:
     st.plotly_chart(fig_line)
@@ -153,11 +247,12 @@ lofEoLP = st.number_input("Enter the lost order footprint in kg CO2 eq per EoL p
 Z = 1000000
 
 data = {
+    "collab": collab,
     "M": demand_scenario.index,
-    "R": df_sets.index,
-    "V": df_sets.index,
-    "L": df_sets.index,
-    "F": df_sets.index,
+    "R": df_sets['COM'],
+    "V": df_sets['COM'],
+    "L": df_sets['COM'],
+    "F": df_sets['COM'],
     "P": P,
     "T": T,
     "demand": demand_scenario,
@@ -197,7 +292,6 @@ data = {
     "Z": Z,
     "D_max": D_max
 }
-
 
 if st.button("Save Parameters"):
     with open("parameters.pkl", "wb") as f:

@@ -10,7 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import glob
 import os
-from datetime import date
+from datetime import date, datetime
 import csv
 import sys
 from email.mime import base
@@ -26,6 +26,10 @@ import pickle
 from scipy.integrate import odeint
 import gurobipy as gp
 import math
+from gurobipy import Model, GRB, quicksum
+from itertools import product
+
+
 
 current_year = 2024
 # The existing product data source
@@ -49,7 +53,8 @@ def create_map():
 
 
 def get_communes_by_population(pop):
-    df = pd.read_csv(rf"{executive_factor_folder}\donnees_communes_population.csv", encoding='utf-8', sep=';')
+    df = pd.read_csv(rf"{executive_factor_folder}\donnees_communes_population.csv", encoding='utf-8', sep=';',
+        dtype={'COM': str})
     geo = pd.read_csv(rf"{executive_factor_folder}\Ref-1-CodeGeo\GeoPosition.csv")
     df_occitanie = df[df['REG']==76]
     df_occitanie = df_occitanie[["COM", "Commune", "PMUN"]]
