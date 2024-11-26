@@ -19,356 +19,125 @@ collab, M, R, V, L, F, P, T, demand, pb_EoL, dist, maxcapMN, maxcapRMN, maxcapH,
 
 st.write(f"The collaborative strategy of the selected dataset is {collab}.")
 
-# st.write(
-#     """
-#     ### Decision Variables
+st.write(
+    """
+    ### Decision Variables
 
-#     **Activation**
 
-#     - $x_{jt}$: Facility activation, 1 if facility $j$ is active during planning period $t$, 0 otherwise.
+    ## Objective Function
 
-#     **Network Flow Control**
+""")
 
-#     - $z_{ii't}$: Flow authorisation, 1 if the flow is authorised from node $i$ to $i'$ during planning period $t$, where $i, i'\in I$, 0 otherwise.
+st.write(
+        """
+    ## Constraints
+    
 
-#     **Product Flows**
+    """)
 
-#     - $q_{ii'pt}^{RU}$: Number of retrofit kits (RU) shipped from node $i$ to $i'$ for product model $p$ during $t$.
-#     - $q_{mrpt}^{PR}$: Number of products to be retrofitted (PR) transported from market segment $m$ to retrofit centre $r$ for product model $p$ during $t$.
-#     - $q_{rmpt}^{RP}$: Number of retrofitted products (RP) transported from retrofit centre $r$ to market segment $m$ for product model $p$ during $t$.
+if collab == "Integrated" or collab == "Together":
+    st.write("""
 
-#     **End-of-Life (EoL) Product Flows**
+    > **Warning:** In the *integrated* and *together* scenario, paths between logistics nodes are not permitted, leading to this constraint.
 
-#     - $q_{mrpt}^{EoLP}$: Number of End-of-Life products (EoLP) sent from market segment $m$ to retrofit centre $r$ for product model $p$ during $t$.
-#     - $q_{rvpt}^{EoLRU}$: Number of End-of-Life retrofit kits (EoLRU) shipped from retrofit centre $r$ to recovery centre $v$ for product model $p$ during $t$.
-#     - $q_{vfpt}^{EoLPa}$: Number of End-of-Life parts (EoLPa) shipped from recovery centre $v$ to factory $f$ for product model $p$ during $t$.
+    $$
+    \\begin{align}
+    z_{ll't} = 0 \\quad \\forall l \\in L, \\forall l' \\in L, \\forall t \\in T
+    \\end{align}
+    $$
+    """)
 
-#     **Transport Unit Flows**
+if collab == "Integrated":  
+    st.write("""
+    ### Dedicated Logistics Paths
 
-#     - $q_{ii't}^{TR}\in \mathbb{N}$: Number of transport units circulating from node $i$ to node $i'$ for product model $p$ during $t$, where $(i,i')\in \mathcal{A}^{TR} := (F\times L)\cup(L\times R)\cup(R\times V)\cup(V\times F)\cup(V\times L)\cup \{(l, l') | l,l'\in L, l\neq l'\}$.
+    In the *integrated* scenario, a tightly controlled logistics strategy is adopted, where specific facilities are designated to interact exclusively with certain other facilities.
 
-#     **Lost Orders**
+    Each factory sends parts to at most one designated logistics node, with the assignment consistent across planning periods.
 
-#     - $lo^{PR}_{mpt}$: Number of products for retrofitting (PR) that are considered lost at market segment $m$ for product model $p$ during $t$.
-#     - $lo^{EoLP}_{mpt}$: Number of End-of-Life retrofitted products (EoLP) that are considered lost at market segment $m$ for product model $p$ during $t$.
+    $$
+    \\begin{align}
+    \\sum_{l \\in L} z_{flt} \\leq 1 \\quad &\\forall f \\in F, \\forall t \\in T \\\\
+    z_{flt} = z_{fl(t+1)} \\quad &\\forall f \\in F, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
+    \\end{align}
+    $$
 
-#     **End-of-Life (EoL) Demand**
+    Each retrofit centre is served solely by a specific logistics node, with the assignment consistent across planning periods.
 
-#     - $dm^{EoLP}_{mpt}$: Number of End-of-Life retrofitted products that need to be recovered for product model $p$ at market segment $m$ in $t$.
+    $$
+    \\begin{align}
+    \\sum_{l \\in L} z_{lrtt} \\leq 1 \\quad &\\forall r \\in R, \\forall t \\in T \\\\
+    z_{lrtt} = z_{lr(t+1)} \\quad &\\forall l \\in L, \\forall r \\in R, \\forall t \\in T \\backslash \\{|T|\\}
+    \\end{align}
+    $$
 
-#     ## Objective Function
+    Each retrofit centre interacts with at most one designated recovery centre, with the assignment consistent across planning periods.
 
-#     The objective function of the model is to minimize the total carbon footprint of the network design. The total carbon footprint consists of the following components:
+    $$
+    \\begin{align}
+    \\sum_{v \\in V} z_{rvt} &\\leq 1 \\quad \\forall r \\in R, \\forall t \\in T \\\\
+    z_{rvt} &= z_{rv(t+1)} \\quad \\forall r \\in R, v \\in V, \\forall t \\in T \\backslash \\{|T|\\}
+    \\end{align}
+    $$
 
-#     $$
-#     \\begin{align}
-#     \\text{Minimise }: CF &= CF_{FA} + CF_{OP} + CF_{TR} + CF_{LO} \\\\
-#     \\text{where } CF_{FA} &= \\sum_{t\\in T}\\sum_{j \\in J} x_{jt}\\cdot af_{j}
-#     \\end{align}
-#     $$
+    Each recovery centre sends items to at most one designated logistics node, with the assignment consistent across planning periods.
 
-#     $$
-#     \\begin{align}
-#     CF_{OP} &= \\sum_{t \\in T} \\sum_{p \\in P}\\sum_{f \\in F}\\sum_{v \\in V} q_{vfpt}^{EoLPa} \\cdot uof^{RMN}_{f} \\\\
-#     &+ \\sum_{t \\in T} \\sum_{p \\in P}\\sum_{f \\in F}\\left(\\sum_{l \\in L} q_{flpt}^{RU} - \\sum_{v \\in V} q_{vfpt}^{EoLPa}\\right) \\cdot uof^{MN}_{f} \\\\
-#     &+ \\sum_{t \\in T}\\sum_{p \\in P} \\sum_{l \\in L} \\left( \\left(\\sum_{r \\in R} q_{lrpt}^{RU} + \\sum_{l' \\in L \\setminus \\{l\\}} q_{ll'pt}^{RU}\\right) \\cdot uof^H_{l} \\right)\\\\
-#     &+ \\sum_{t \\in T}\\sum_{p \\in P} \\sum_{r \\in R} \\left( \\sum_{m \\in M} q^{RP}_{rmpt} \\cdot uof^R_{r} + \\sum_{v \\in V} q_{rvpt}^{EoLRU} \\cdot uof^{DP}_{r} \\right) \\\\
-#     &+ \\sum_{t \\in T} \\sum_{p \\in P} \\sum_{v \\in V} \\left( \\sum_{l \\in L} q_{vlpt}^{RU} \\cdot uof^{RF}_{v} + \\sum_{f \\in F} q_{vfpt}^{EoLPa} \\cdot uof^{DRU}_{v} \\right)
-#     \\end{align}
-#     $$
+    $$
+    \\begin{align}
+    \\sum_{l \\in L} z_{vlt} &\\leq 1 \\quad \\forall v \\in V, \\forall t \\in T \\\\
+    z_{vlt} &= z_{vl(t+1)} \\quad \\forall v \\in V, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
+    \\end{align}
+    $$
+    """)
 
-#     $$
-#     \\begin{align}
-#     CF_{TR} &= \\sum_{t \\in T}\\sum_{(i,i') \\in \\mathcal{A}^{TR}} q_{ii't}^{TR} \\cdot tf^{TR} \\cdot d_{ii'} \\\\
-#     &+ \\sum_{t \\in T}\\sum_{p \\in P}\\sum_{m \\in M} \\sum_{r \\in R} q_{mrpt}^{PR} \\cdot utf^{PR} \\cdot d_{mr} \\\\
-#     &+ \\sum_{t \\in T}\\sum_{p \\in P}\\sum_{r \\in R} \\sum_{m \\in M} q_{rmpt}^{RP} \\cdot utf^{RP} \\cdot d_{rm} \\\\
-#     &+ \\sum_{t \\in T}\\sum_{p \\in P}\\sum_{m \\in M} \\sum_{r \\in R} q_{mrpt}^{EoLP} \\cdot utf^{RP} \\cdot d_{mr}
-#     \\end{align}
-#     $$
+if collab == "Integrated":
+    st.write("""
+    **Warning:** Facility Activation
 
-#     $$
-#     \\begin{align}
-#     CF_{LO} = \\sum_{t \\in T}\\sum_{p \\in P}\\sum_{m \\in M} \\left( lo_{mpt}^{PR} \\cdot lof^{PR}_p + lo_{mpt}^{EoLP} \\cdot lof_p^{EoLP} \\right)
-#     \\end{align}
-#     $$
-# """)
+    In the *integrated* scenario, once a facility is opened, it remains operational for the rest of the planning horizon.
 
-# st.write(
-#         """
-#     ## Constraints
-#     ### Calculation of EoL Recovery Demand
+    $$
+    \\begin{align}
+    x_{jt} \\leq x_{j(t+1)} \\quad \\forall j \\in J, \\forall t \\in T \\backslash \\{|T|\\}
+    \\end{align}
+    $$
+    """)
 
-#     For the initial planning period, there is no EoL recovery demand since no products have been retrofitted in prior periods. For subsequent periods ($t \geq 2$), the EoL recovery demand is determined based on the number of products retrofitted in previous periods and the probability that these products reach their EoL in period $t$.
+st.write("""
+### Distance
 
-#     $$
-#     \\begin{align}
-#     d^{EoLP}_{mp1} &= 0 \\quad \\forall m \\in M, \\forall p \\in P \\\\
-#     d^{EoLP}_{mpt} &= \\sum_{\\tau=1}^{t-1} \\left( \\sum_{r \\in R} q^{PR}_{mrp\\tau} \\right) \\cdot \\left[ pb^{EoL}_{t - \\tau +1} - pb^{EoL}_{t - \\tau} \\right] \\quad \\forall m \\in M, \\forall p \\in P, \\forall t \\in [\\![ 2, |T|]\\!]
-#     \\end{align}
-#     $$
+To ensure that market segments are only served by retrofit centres within an acceptable distance, the following constraints are imposed.
 
-#     ### Demand Fulfillment for Retrofit and EoL Products
+$$
+\\begin{align}
+z_{mrt} \\leq \\mathbf{1}_{\\{d_{rm} \\leq D_{max}\\}} \\quad \\forall m \\in M, \\forall r \\in R, \\forall t \\in T
+\\end{align}
+$$
 
-#     These constraints ensure that the demand for retrofit services and EoL product recovery is considered, accounting for any lost orders.
+### Non-negativity
 
-#     $$
-#     \\begin{align}
-#     \\sum_{r \\in R} q^{PR}_{mrpt} &= dm_{mpt} - lo^{PR}_{mpt} \\quad \\forall m \\in M, \\forall p \\in P, \\forall t \\in T \\\\
-#     \\sum_{r \\in R} q^{EoLP}_{mrpt} &= dm^{EoLP}_{mpt} - lo^{EoLP}_{mpt} \\quad \\forall m \\in M, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
+All flow variables, lost order variables, and EoL demand variables are non-negative.
 
-#     ### Calculation of Transport Unit Flows
-
-#     These constraints calculate the number of transport units required for each transportation path, considering payload capacities and average filling rates.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{p\\in P} q^{RU}_{ii'pt} \\times w^{RU} &\\leq q^{TR}_{ii't} \\cdot pl^{TR} \\cdot fr^{TR} \\quad \\forall (i, i') \\in \\mathcal{A}^{RU}, \\forall t \\in T \\\\
-#     \\sum_{p\\in P} q^{EoLRU}_{ii'pt} \\times w^{RU} &\\leq q^{TR}_{ii't} \\cdot pl^{TR} \\cdot fr^{TR} \\quad \\forall (i, i') \\in (R \\times V), \\forall t \\in T \\\\
-#     \\sum_{p\\in P} q^{EoLPa}_{ii'pt} \\times w^{EoLPa} &\\leq q^{TR}_{ii't} \\cdot pl^{TR} \\cdot fr^{TR} \\quad \\forall (i, i') \\in (V \\times F), \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     where 
-#     $$
-#     \\mathcal{A}^{RU} := (F \\times L) \\cup (L \\times R) \\cup (V \\times L) \\cup \\{(l, l') \\mid l, l' \\in L, l \\neq l'\\}.
-#     $$
-
-#     ### Capacity and Minimum Operating Level
-
-#     These constraints ensure that facilities operate within their capacity limits and meet the minimum operating levels.
-
-#     **Factory Manufacturing**
-
-#     $$
-#     \\begin{align}
-#     x_{ft} \\cdot mol^{MN}_{f} \\leq \\sum_{p \\in P} \\left( \\sum_{l \\in L} q^{RU}_{flpt} - \\sum_{v \\in V} q^{EoLPa}_{vfpt} \\right) \\leq x_{ft} \\cdot cap^{MN}_{f} \\quad \\forall f \\in F, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     **Factory Remanufacturing**
-
-#     $$
-#     \\begin{align}
-#     x_{ft} \\cdot mol^{RMN}_{f} \\leq \\sum_{p \\in P} \\sum_{v \\in V} q^{EoLPa}_{vfpt} \\leq x_{ft} \\cdot cap^{RMN}_{f} \\quad \\forall f \\in F, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     **Logistics Node Handling**
-
-#     $$
-#     \\begin{align}
-#     x_{lt} \\cdot mol^H_{l} \\leq \\sum_{p \\in P} \\sum_{r \\in R} q^{RU}_{lrpt} \\leq x_{lt} \\cdot cap^H_{l} \\quad \\forall l \\in L, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     **Retrofit Centre Retrofitting**
-
-#     $$
-#     \\begin{align}
-#     x_{rt} \\cdot mol^R_{r} \\leq \\sum_{p \\in P} \\sum_{m \\in M} q^{RP}_{rmpt} \\leq x_{rt} \\cdot cap^R_{r} \\quad \\forall r \\in R, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     **Retrofit Centre Disassembling EoL Products**
-
-#     $$
-#     \\begin{align}
-#     x_{rt} \\cdot mol^{DP}_{r} \\leq \\sum_{p \\in P} \\sum_{m \\in M} q^{EoLP}_{mrpt} \\leq x_{rt} \\cdot cap^{DP}_{r} \\quad \\forall r \\in R, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     **Recovery Centre Refurbishing**
-
-#     $$
-#     \\begin{align}
-#     x_{vt} \\cdot mol^{RF}_{v} \\leq \\sum_{p \\in P} \\sum_{l \\in L} q_{vlpt}^{RU} \\leq x_{vt} \\cdot cap^{RF}_{v} \\quad \\forall v \\in V, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     **Recovery Centre Disassembling Retrofit Kits**
-
-#     $$
-#     \\begin{align}
-#     x_{vt} \\cdot mol^{DRU}_{v} \\leq \\sum_{p \\in P} \\sum_{f \\in F} q_{vfpt}^{EoLPa} \\leq x_{vt} \\cdot cap^{DRU}_{v} \\quad \\forall v \\in V, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     ### Flow Conservation
-
-#     These constraints ensure the balance of flows throughout the network.
-
-#     At factories, all refurbished parts are utilized in the production of new retrofit kits.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{l \\in L} q^{RU}_{flpt} \\geq \\sum_{v \\in V} q^{EoLPa}_{vfpt} \\quad \\forall f \\in F, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     At logistics nodes, the total retrofit kits sent to retrofit centres and other logistics nodes must equal the total kits received from factories, recovery centres, and other logistics nodes.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{f \\in F} q^{RU}_{flpt} + \\sum_{v \\in V} q^{RU}_{vlpt} + \\sum_{l' \\in L - \\{l\\}} q^{RU}_{l'lpt} = \\sum_{r \\in R} q^{RU}_{lrpt} + \\sum_{l' \\in L - \\{l\\}} q^{RU}_{ll'pt} \\quad \\forall l \\in L, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     At retrofit centres, the number of retrofit units received must match the number of products to be retrofitted.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{l \\in L} q^{RU}_{lrpt} = \\sum_{m \\in M} q^{PR}_{mrpt} \\quad \\forall r \\in R, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     At retrofit centres, products to be retrofitted are processed within the same period.
-
-#     $$
-#     \\begin{align}
-#     q^{RP}_{rmpt} = q^{PR}_{mrpt} \\quad \\forall r \\in R, \\forall m \\in M, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     At retrofit centres, the number of EoL products received equals the number of EoL retrofit kits sent to recovery centres.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{m \\in M} q^{EoLP}_{mrpt} = \\sum_{v \\in V} q^{EoLRU}_{rvpt} \\quad \\forall r \\in R, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     At recovery centres, the total number of refurbished parts and refurbished retrofit kits equals the number of EoL retrofit kits received:
-
-#     $$
-#     \\begin{align}
-#     \\sum_{l \\in L} q^{RU}_{vlpt} + \\sum_{f \\in F} q^{EoLPa}_{vfpt} = \\sum_{r \\in R} q^{EoLRU}_{rvpt} \\quad \\forall v \\in V, \\forall p \\in P, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     ### Flow Authorisation
-
-#     Flows between nodes are permitted only if the corresponding paths are authorised. The transport of units between facilities, retrofitted products from retrofit centres to market segments, and EoL products from market segments to retrofit centres is allowed only if the path is authorised.
-
-#     $$
-#     \\begin{align}
-#     q_{ii't}^{TR} &\\leq Z \\cdot z_{jj't} \\quad \\forall (j,j') \\in \\mathcal{A}^{TR}, \\forall t \\in T \\\\
-#     q_{rmpt}^{RP} &\\leq Z \\cdot z_{mrt} \\quad \\forall m \\in M, \\forall r \\in R, \\forall t \\in T \\\\
-#     q_{mrpt}^{EoLP} &\\leq Z \\cdot z_{mrt} \\quad \\forall m \\in M, \\forall r \\in R, \\forall t \\in T
-#     \\end{align}
-#     $$
-
-#     Paths can be authorised only if both the origin and destination facilities are active during the planning period.
-
-#     $$
-#     \\begin{align}
-#     z_{ii't} &\\leq x_{it} \\quad \\forall t \\in T, \\forall i \\in J, \\forall i' \\in J \\\\
-#     z_{ii't} &\\leq x_{i't} \\quad \\forall t \\in T, \\forall i \\in J, \\forall i' \\in J
-#     \\end{align}
-#     $$
-#     """)
-
-# if collab == "Integrated" or collab == "Together":
-#     st.write("""
-
-#     > **Warning:** In the *integrated* and *together* scenario, paths between logistics nodes are not permitted, leading to this constraint.
-
-#     $$
-#     \\begin{align}
-#     z_{ll't} = 0 \\quad \\forall l \\in L, \\forall l' \\in L, \\forall t \\in T
-#     \\end{align}
-#     $$
-#     """)
-
-# if collab == "Integrated":  
-#     st.write("""
-#     ### Dedicated Logistics Paths
-
-#     In the *integrated* scenario, a tightly controlled logistics strategy is adopted, where specific facilities are designated to interact exclusively with certain other facilities.
-
-#     Each factory sends parts to at most one designated logistics node, with the assignment consistent across planning periods.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{l \\in L} z_{flt} \\leq 1 \\quad &\\forall f \\in F, \\forall t \\in T \\\\
-#     z_{flt} = z_{fl(t+1)} \\quad &\\forall f \\in F, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
-#     \\end{align}
-#     $$
-
-#     Each retrofit centre is served solely by a specific logistics node, with the assignment consistent across planning periods.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{l \\in L} z_{lrtt} \\leq 1 \\quad &\\forall r \\in R, \\forall t \\in T \\\\
-#     z_{lrtt} = z_{lr(t+1)} \\quad &\\forall l \\in L, \\forall r \\in R, \\forall t \\in T \\backslash \\{|T|\\}
-#     \\end{align}
-#     $$
-
-#     Each retrofit centre interacts with at most one designated recovery centre, with the assignment consistent across planning periods.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{v \\in V} z_{rvt} &\\leq 1 \\quad \\forall r \\in R, \\forall t \\in T \\\\
-#     z_{rvt} &= z_{rv(t+1)} \\quad \\forall r \\in R, v \\in V, \\forall t \\in T \\backslash \\{|T|\\}
-#     \\end{align}
-#     $$
-
-#     Each recovery centre sends items to at most one designated logistics node, with the assignment consistent across planning periods.
-
-#     $$
-#     \\begin{align}
-#     \\sum_{l \\in L} z_{vlt} &\\leq 1 \\quad \\forall v \\in V, \\forall t \\in T \\\\
-#     z_{vlt} &= z_{vl(t+1)} \\quad \\forall v \\in V, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
-#     \\end{align}
-#     $$
-#     """)
-
-# if collab == "Integrated":
-#     st.write("""
-#     **Warning:** Facility Activation
-
-#     In the *integrated* scenario, once a facility is opened, it remains operational for the rest of the planning horizon.
-
-#     $$
-#     \\begin{align}
-#     x_{jt} \\leq x_{j(t+1)} \\quad \\forall j \\in J, \\forall t \\in T \\backslash \\{|T|\\}
-#     \\end{align}
-#     $$
-#     """)
-
-# st.write("""
-# ### Distance
-
-# To ensure that market segments are only served by retrofit centres within an acceptable distance, the following constraints are imposed.
-
-# $$
-# \\begin{align}
-# z_{mrt} \\leq \\mathbf{1}_{\\{d_{rm} \\leq D_{max}\\}} \\quad \\forall m \\in M, \\forall r \\in R, \\forall t \\in T
-# \\end{align}
-# $$
-
-# ### Non-negativity
-
-# All flow variables, lost order variables, and EoL demand variables are non-negative.
-
-# $$
-# \\begin{align}
-# q_{ii'pt}^{RU}, q_{ii'pt}^{PR}, q_{ii'pt}^{RP}, q_{ii'pt}^{EoLP}, q_{ii'pt}^{EoLRU}, q_{ii'pt}^{EoLPa} &\\geq 0 \\\\
-# lo^{PR}_{mpt}, lo^{EoLP}_{mpt} &\\geq 0 \\\\
-# dm_{mpt}^{EoLP} &\\geq 0
-# \\end{align}
-# $$
-
-# """)
+$$
+\\begin{align}
+q_{ii'pt}^{RU}, q_{ii'pt}^{PR}, q_{ii'pt}^{RP}, q_{ii'pt}^{EoLP}, q_{ii'pt}^{EoLRU}, q_{ii'pt}^{EoLPa} &\\geq 0 \\\\
+lo^{PR}_{mpt}, lo^{EoLP}_{mpt} &\\geq 0 \\\\
+dm_{mpt}^{EoLP} &\\geq 0
+\\end{align}
+$$
+
+""")
 
 st.write("# Model Implementation")
 
-# file_name = 'parameters.pkl'
-# current_time = datetime.now().strftime("%Y%m%d%H%M")
-# destination_path = "experimentations/" + collab + "/" + current_time + "/"
-# os.makedirs(destination_path, exist_ok=True) 
-# os.rename(file_name, destination_path+file_name)
+file_name = 'parameters.pkl'
+current_time = datetime.now().strftime("%Y%m%d%H%M")
+destination_path = "experimentations/" + collab + "/" + current_time + "/"
+os.makedirs(destination_path, exist_ok=True) 
+os.rename(file_name, destination_path+file_name)
+
+demand = demand.set_index("code_commune_titulaire", drop=True)
+st.write(demand)
 
 model = Model(collab)
 F = F.apply(lambda x: f"{x}F")
@@ -384,19 +153,22 @@ A_LR = list(product(L, R))  # (L x R)
 A_RV = list(product(R, V))  # (R x V)
 A_VF = list(product(V, F))  # (V x F)
 A_VL = list(product(V, L))  # (V x L)
+A_MR = list(product(M, R))  # (M x R)
 
 # Create the arcs (l, l') for l, l' in L where l != l'
 A_LL = [(l1, l2) for l1 in L for l2 in L if l1 != l2]
 
 # Combine all arcs to form A^TR
 A_TR = A_FL + A_LR + A_RV + A_VF + A_VL + A_LL
+A_RU = A_FL + A_LR + A_VL + A_LL
+A_all = A_FL + A_LR + A_MR + A_RV + A_VF + A_VL + A_LL
 
 # Decision variables
 x = model.addVars(J, T, vtype=GRB.BINARY, name="x")
 
-z = model.addVars(I, I, T, vtype=GRB.BINARY, name="z")
+z = model.addVars(A_all, T, vtype=GRB.BINARY, name="z")
 
-qRU = model.addVars(I, I, T, P, vtype=GRB.CONTINUOUS, name="qRU")
+qRU = model.addVars(A_RU, T, P, vtype=GRB.CONTINUOUS, name="qRU")
 qPR = model.addVars(M, R, T, P, vtype=GRB.CONTINUOUS, name="qPR")
 qRP = model.addVars(R, M, T, P, vtype=GRB.CONTINUOUS, name="qRP")
 
@@ -415,14 +187,127 @@ CF_FA_F = quicksum(x[f, t] * af["F"] for f in F for t in T)
 CF_FA_L = quicksum(x[l, t] * af["L"] for l in L for t in T)
 CF_FA_R = quicksum(x[r, t] * af["R"] for r in R for t in T)
 CF_FA_V = quicksum(x[v, t] * af["V"] for v in V for t in T)
-
-CF_OP_RMN = quicksum(qEoLPa[v, f, t, p] * uofRMN[f] for v in V for f in F for p in P for t in T)
-CF_OP_MN = quicksum((quicksum(qRU[f, l, t, p] for l in L) - quicksum(qEoLPa[v, f, t, p] for v in V)) * uofMN[f] for f in F for p in P for t in T)
-CF_OP_H = quicksum((quicksum(qRU[l, r, t, p] for r in R) + quicksum(qRU[l, l2, t, p] for l2 in L - {l})) * uofH[l] for l in L for p in P for t in T)
-CF_OP_R = quicksum((quicksum(qRP[r, m, t, p] * uofR[r] for m in M) + quicksum(qEoLRU[r, v, t, p] * uofDP[r] for v in V)) for r in R for p in P for t in T)
-CF_OP_RF = quicksum((quicksum(qRU[v, l, t, p] * uofRF[v] for l in L) + quicksum(qEoLPa[f, v, t, p] * uofDRU[v] for f in F)) for v in V for p in P for t in T)
-
-CF_TR_Trans = quicksum(qTR[i, i2, t] * tf_TR * dist.loc([i[:-1], i2[:-1]]) for i, i2 in A_TR for t in T)
-CF_TR_V = quicksum(qPR[m, r, t, p] * utf_PR * dist[m, r] for m in M for r in R for p in P for t in T) + quicksum(qRP[r, m, t, p] * utf_RP * dist[r, m] for r in R for m in M for p in P) + quicksum(qEoLP[m, r, t, p] * utf_RP * dist[m, r] for m in M for r in R for p in P)
+CF_FA = CF_FA_F + CF_FA_L + CF_FA_R + CF_FA_V
 
 
+CF_OP_RMN = quicksum(qEoLPa[v, f, t, p] * uofRMN for v in V for f in F for p in P for t in T)
+CF_OP_MN = quicksum((quicksum(qRU[f, l, t, p] for l in L) - quicksum(qEoLPa[v, f, t, p] for v in V)) * uofMN for f in F for p in P for t in T)
+CF_OP_H = quicksum((quicksum(qRU[l, r, t, p] for r in R) + quicksum(qRU[l, l2, t, p] for l2 in [l1 for l1 in L if l1 != l])) * uofH for l in L for p in P for t in T)
+CF_OP_R = quicksum((quicksum(qRP[r, m, t, p] * uofR for m in M) + quicksum(qEoLRU[r, v, t, p] * uofDP for v in V)) for r in R for p in P for t in T)
+CF_OP_RF = quicksum((quicksum(qRU[v, l, t, p] * uofRF for l in L) + quicksum(qEoLPa[v, f, t, p] * uofDRU for f in F)) for v in V for p in P for t in T)
+CF_OP = CF_OP_RMN + CF_OP_MN + CF_OP_H + CF_OP_R + CF_OP_RF
+
+CF_TR_Trans = quicksum(qTR[i, i2, t] * tf_TR * dist.loc[i[:-1], i2[:-1]] for i, i2 in A_TR for t in T)
+CF_TR_V = quicksum(qPR[m, r, t, p] * utf_PR * dist.loc[m[:-1], r[:-1]] for m in M for r in R for p in P for t in T) + quicksum(qRP[r, m, t, p] * utf_RP * dist.loc[r[:-1], m[:-1]] for r in R for m in M for p in P for t in T) + quicksum(qEoLP[m, r, t, p] * utf_RP * dist.loc[m[:-1], r[:-1]] for m in M for r in R for p in P for t in T)
+CF_TR = CF_TR_Trans + CF_TR_V
+
+CF_LO_R = quicksum(loPR[m, t, p] * lofPR for m in M for p in P for t in T)
+CF_LO_EoLP = quicksum(loEoLP[m, t, p] * lofEoLP for m in M for p in P for t in T)
+CF_LO = CF_LO_R + CF_LO_EoLP
+
+model.setObjective(CF_FA + CF_OP + CF_TR + CF_LO, GRB.MINIMIZE)
+
+# Constraints
+dm_recovery_1 = model.addConstrs((dmEoLP[m, 1, p] == 0 for m in M for p in P), name="dm_recovery_1")
+dm_recovery_t = model.addConstrs(
+    (
+        dmEoLP[m, t, p] == quicksum(
+            quicksum(qPR[m, r, tau, p] for r in R) * (pb_EoL[t - tau + 1] - pb_EoL[t - tau])
+            for tau in range(1, t)
+        )
+        for m in M for p in P for t in range(2, len(T) + 1)
+    ),
+    name="dm_recovery_t"
+)
+
+demand_fulfillment_PR = model.addConstrs((quicksum(qPR[m, r, t, p] for r in R) == demand.loc[m[:-1], t] - loPR[m, t, p] for m in M for p in P for t in T), name="demand_fulfillment_PR")
+demand_fulfillment_EoLP = model.addConstrs((quicksum(qEoLP[m, r, t, p] for r in R) == dmEoLP[m, t, p] - loEoLP[m, t, p] for m in M for p in P for t in T), name="demand_fulfillment_EoLP")
+
+transport_unit_flows_RU = model.addConstrs((quicksum(qRU[i, i2, t, p] * wRU for p in P) <= qTR[i, i2, t] * pl_TR * fr_TR for i, i2 in A_RU for t in T), name="transport_unit_flows")
+transport_unit_flows_EoLRU = model.addConstrs((quicksum(qEoLRU[i, i2, t, p] * wRU for p in P) <= qTR[i, i2, t] * pl_TR * fr_TR for i, i2 in A_RV for t in T), name="transport_unit_flows_EoLRU")
+transport_unit_flows_EoLPa = model.addConstrs((quicksum(qEoLPa[i, i2, t, p] * wEoLPa for p in P) <= qTR[i, i2, t] * pl_TR * fr_TR for i, i2 in A_VF for t in T), name="transport_unit_flows_EoLPa")
+
+max_capa_MN = model.addConstrs(quicksum(quicksum(qRU[f, l, t, p] for l in L) - quicksum(qEoLPa[v, f, t, p] for v in V) for p in P) <= x[f, t] * maxcapMN for f in F for t in T)
+min_operating_MN = model.addConstrs(quicksum(quicksum(qRU[f, l, t, p] for l in L) - quicksum(qEoLPa[v, f, t, p] for v in V) for p in P) >= x[f, t] * molMN for f in F for t in T)
+max_capa_RMN = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for v in V for p in P) <= x[f, t] * maxcapRMN for f in F for t in T)
+min_operating_RMN = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for v in V for p in P) >= x[f, t] * molRMN for f in F for t in T)
+max_capa_H = model.addConstrs(quicksum(qRU[l, r, t, p] for r in R for p in P) <= x[l, t] * maxcapH for l in L for t in T)
+min_operating_H = model.addConstrs(quicksum(qRU[l, r, t, p] for r in R for p in P) >= x[l, t] * molH for l in L for t in T)
+max_capa_R = model.addConstrs(quicksum(qRP[r, m, t, p] for m in M for p in P) <= x[r, t] * maxcapR for r in R for t in T)
+min_operating_R = model.addConstrs(quicksum(qRP[r, m, t, p] for m in M for p in P) >= x[r, t] * molR for r in R for t in T)
+max_capa_DP = model.addConstrs(quicksum(qEoLP[m, r, t, p] for m in M for p in P) <= x[r, t] * maxcapDP for r in R for t in T)
+min_operating_DP = model.addConstrs(quicksum(qEoLP[m, r, t, p] for m in M for p in P) >= x[r, t] * molDP for r in R for t in T)
+max_capa_RF = model.addConstrs(quicksum(qRU[v, l, t, p] for l in L for p in P) <= x[v, t] * maxcapRF for v in V for t in T)
+min_operating_RF = model.addConstrs(quicksum(qRU[v, l, t, p] for l in L for p in P) >= x[v, t] * molRF for v in V for t in T)
+max_capa_DRU = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for f in F for p in P) <= x[v, t] * maxcapDRU for v in V for t in T)
+min_operating_DRU = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for f in F for p in P) >= x[v, t] * molDRU for v in V for t in T)
+
+flow_conservation_F = model.addConstrs((quicksum(qRU[f, l, t, p] for l in L) >= quicksum(qEoLPa[v, f, t, p] for v in V) for f in F for p in P for t in T), name="flow_conservation")
+flow_conservation_L = model.addConstrs((quicksum(qRU[f, l, t, p] for f in F) + quicksum(qRU[v, l, t, p] for v in V) + quicksum(qRU[l2, l, t, p] for l2 in [l1 for l1 in L if l1 != l]) == quicksum(qRU[l, r, t, p] for r in R) + quicksum(qRU[l, l2, t, p] for l2 in [l1 for l1 in L if l1 != l]) for l in L for p in P for t in T), name="flow_conservation_L")
+flow_conservation_R = model.addConstrs((quicksum(qRU[l, r, t, p] for l in L) == quicksum(qPR[m, r, t, p] for m in M) for r in R for p in P for t in T), name="flow_conservation_R")
+flow_conservation_RP = model.addConstrs((qRP[r, m, t, p] == qPR[m, r, t, p] for r in R for m in M for p in P for t in T), name="flow_conservation_RP")
+flow_conservation_RU = model.addConstrs((quicksum(qEoLP[m, r, t, p] for m in M) == quicksum(qEoLRU[r, v, t, p] for v in V) for r in R for p in P for t in T), name="flow_conservation_RU")
+flow_conservation_RF = model.addConstrs((quicksum(qRU[v, l, t, p] for l in L) + quicksum(qEoLPa[v, f, t, p] for f in F) == quicksum(qEoLRU[r, v, t, p] for r in R) for v in V for p in P for t in T), name="flow_conservation_RF")
+
+flow_authorisation_Trans = model.addConstrs((qTR[i, i2, t] <= Z * z[i, i2, t] for i, i2 in A_TR for t in T), name="flow_authorisation_Trans")
+flow_authorisation_M_RP = model.addConstrs((qRP[r, m, t, p] <= Z * z[m, r, t] for m in M for r in R for t in T for p in P), name="flow_authorisation_M")
+flow_authorisation_M_EoLP = model.addConstrs((qEoLP[m, r, t, p] <= Z * z[m, r, t] for m in M for r in R for t in T for p in P), name="flow_authorisation_M_EoLP")
+
+flow_authorisation_origin = model.addConstrs((z[i, i2, t] <= x[i, t] for t in T for i, i2 in A_TR), name="flow_authorisation_origin")
+flow_authorisation_destination = model.addConstrs((z[i, i2, t] <= x[i2, t] for t in T for i, i2 in A_TR), name="flow_authorisation_destination")
+flow_authorisation_retrofit = model.addConstrs((z[m, r, t] <= x[r, t] for m in M for r in R for t in T), name="flow_authorisation_retrofit")
+
+if collab == "Integrated" or collab == "Together":
+    flow_authorisation_L = model.addConstrs((z[l, l2, t] == 0 for l in L for l2 in L if l != l2 for t in T), name="flow_authorisation_L")
+
+if collab == "Integrated":
+    dedicated_logistics_paths_F = model.addConstrs((quicksum(z[f, l, t] for l in L) <= 1 for f in F for t in T), name="dedicated_logistics_paths_F")
+    dedicated_logistics_paths_F_temp = model.addConstrs((z[f, l, t] == z[f, l, t + 1] for f in F for l in L for t in T[:-1]), name="dedicated_logistics_paths_F_temp")
+    dedicated_logistics_paths_L = model.addConstrs((quicksum(z[l, r, t] for l in L) <= 1 for r in R for t in T), name="dedicated_logistics_paths_L")
+    dedicated_logistics_paths_L_temp = model.addConstrs((z[l, r, t] == z[l, r, t + 1] for l in L for r in R for t in T[:-1]), name="dedicated_logistics_paths_L_temp")
+    dedicated_logistics_paths_R = model.addConstrs((quicksum(z[r, v, t] for v in V) <= 1 for r in R for t in T), name="dedicated_logistics_paths_R")
+    dedicated_logistics_paths_R_temp = model.addConstrs((z[r, v, t] == z[r, v, t + 1] for r in R for v in V for t in T[:-1]), name="dedicated_logistics_paths_R_temp")
+    dedicated_logistics_paths_V = model.addConstrs((quicksum(z[v, l, t] for l in L) <= 1 for v in V for t in T), name="dedicated_logistics_paths_V")
+    dedicated_logistics_paths_V_temp = model.addConstrs((z[v, l, t] == z[v, l, t + 1] for v in V for l in L for t in T[:-1]), name="dedicated_logistics_paths_V_temp")
+
+    facility_activation = model.addConstrs((x[j, t] <= x[j, t + 1] for j in J for t in T[:-1]), name="facility_activation")
+
+if collab == "Together":
+    facility_activation_F = model.addConstrs((x[j, t] == x[j, t + 1] for j in F for t in T[:-1]), name="facility_activation_F")
+    facility_activation_V = model.addConstrs((x[j, t] == x[j, t + 1] for j in V for t in T[:-1]), name="facility_activation_V")
+
+for r in R:
+    for m in M:
+        if dist.loc[m[:-1], r[:-1]] <= D_max:
+            for t in T:
+                model.addConstr(z[m, r, t] <= 1, name="distance_constraint")
+        else:
+            for t in T:
+                model.addConstr(z[m, r, t] == 0, name="distance_constraint")
+
+def set_param_optim(m, folder_path, timelimit=None):
+    m.Params.MIPGap = 0.01
+    if timelimit:
+        m.Params.TimeLimit = timelimit
+    m.setParam('OutputFlag', True)
+    os.makedirs(folder_path, exist_ok=True)  # Ensure the folder exists
+    log_file_path = os.path.join(folder_path, 'model.log')
+    m.setParam('LogFile', log_file_path)
+    return None
+
+set_param_optim(model, "experimentations/" + collab + "/" + current_time + "/")
+
+model.optimize()
+if model.status == GRB.OPTIMAL or model.status == GRB.TIME_LIMIT or model.status == GRB.INTERRUPTED:
+    st.write("Optimal solution found with total cost", model.objVal)
+    optim_obj = {"Model Status": model.status, "Total footprint": model.objVal, "Activation": CF_FA.getValue(), "Operation": CF_OP.getValue(), "Transport": CF_TR.getValue(), "Lost orders": CF_LO.getValue()}
+    df_result = pd.DataFrame(optim_obj.items(), columns=["Type", "Value"])
+    for v in model.getVars():
+        if v.x > 0:
+            list_v = [v.varName, v.x]
+            new_row = pd.Series(list_v, index=df_result.columns)
+            df_result = pd.concat([df_result, new_row.to_frame().T], ignore_index=True)
+    st.write(df_result)
+    df_result.to_csv(destination_path+"results.csv", index=True)
+else:
+    st.write("No solution found")

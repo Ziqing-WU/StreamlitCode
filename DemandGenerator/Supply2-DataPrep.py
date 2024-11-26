@@ -140,13 +140,6 @@ fig_line = px.line(x=demand_scenario.sum().index[2:-2], y=demand_scenario.sum().
 #     df_long_expanded = df_long_expanded.drop(['Monthly_Demand', 'Monthly_Demand_Floor', 'Remaining', 'Fraction'], axis=1)
 
 
-
-
-
-
-    
-
-
 col1, col2 = st.columns(2)
 with col1:
     st.plotly_chart(fig_line)
@@ -170,23 +163,39 @@ st.write("""
 The distance between two communes is calculated using the Haversine formula.
 """)
 
-communes = list(set(demand_scenario['code_commune_titulaire'].unique()) | set(df_sets['COM']))
-demand_scenario.set_index('code_commune_titulaire', inplace=True)
-dist = pd.DataFrame(index=communes, columns=communes)
-for i in dist.index:
-    for j in dist.columns:
-        lat_i = demand_scenario.at[i, 'Latitude']
-        lon_i = demand_scenario.at[i, 'Longitude']
-        lat_j = demand_scenario.at[j, 'Latitude']
-        lon_j = demand_scenario.at[j, 'Longitude']
-        calc = haversine(lat_i, lon_i, lat_j, lon_j)
-        if calc == 0:
-            dist.loc[i, j] = 3
-        else:
-            dist.loc[i, j] = calc
+@st.cache_data
+def compute_distance_matrix(demand_scenario: pd.DataFrame, df_sets: pd.DataFrame) -> pd.DataFrame:
+    # Combine unique commune codes from both DataFrames
+    communes = list(
+        set(demand_scenario['code_commune_titulaire'].unique()) | set(df_sets['COM'])
+    )
+    
+    # Set 'code_commune_titulaire' as the index for demand_scenario
+    demand_scenario = demand_scenario.set_index('code_commune_titulaire')
+    
+    # Initialize the distance DataFrame with communes as both index and columns
+    dist = pd.DataFrame(index=communes, columns=communes, dtype=float)
+    
+    # Iterate over each pair of communes to calculate distances
+    for i in dist.index:
+        for j in dist.columns:
+            lat_i = demand_scenario.at[i, 'Latitude']
+            lon_i = demand_scenario.at[i, 'Longitude']
+            lat_j = demand_scenario.at[j, 'Latitude']
+            lon_j = demand_scenario.at[j, 'Longitude']
+            
+            # Calculate the haversine distance
+            distance = haversine(lat_i, lon_i, lat_j, lon_j)
+            
+            # Assign distance or 3 if the distance is zero
+            dist.at[i, j] = 3 if distance == 0 else distance
+    
+    return dist
+
+dist = compute_distance_matrix(demand_scenario, df_sets)
 
 st.write("Distance matrix $d_{ii'}$ is:", dist)
-D_max = st.number_input("Enter the maximum allowable distance in km between a market segment and a retrofit centre", value=40)
+D_max = st.number_input("Enter the maximum allowable distance in km between a market segment and a retrofit centre", value=60)
 
 st.write("## Weights")
 
@@ -207,20 +216,20 @@ maxcapDRU = st.number_input("Enter the maximum capacity of a recovery centre for
 
 st.write("""### Minimum operating levels""")
 
-molMN = st.number_input("Enter the minimum operating level of a factory for manufacturing per planning period", value=100)
-molRMN = st.number_input("Enter the minimum operating level of a factory for remanufacturing per planning period", value=50)
-molH = st.number_input("Enter the minimum operating level of a logistic node for handling per planning period", value=100)
-molR = st.number_input("Enter the minimum operating level of a retrofit centre for retrofitting per planning period", value=4)
-molDP = st.number_input("Enter the minimum operating level of a retrofit centre for dismantling per planning period", value=1)
-molRF = st.number_input("Enter the minimum operating level of a recovery centre for refurbishing per planning period", value=10)
-molDRU = st.number_input("Enter the minimum operating level of a recovery centre for dismantling retrofit kits per planning period", value=5)
+molMN = st.number_input("Enter the minimum operating level of a factory for manufacturing per planning period", value=0)
+molRMN = st.number_input("Enter the minimum operating level of a factory for remanufacturing per planning period", value=0)
+molH = st.number_input("Enter the minimum operating level of a logistic node for handling per planning period", value=0)
+molR = st.number_input("Enter the minimum operating level of a retrofit centre for retrofitting per planning period", value=0)
+molDP = st.number_input("Enter the minimum operating level of a retrofit centre for dismantling per planning period", value=0)
+molRF = st.number_input("Enter the minimum operating level of a recovery centre for refurbishing per planning period", value=0)
+molDRU = st.number_input("Enter the minimum operating level of a recovery centre for dismantling retrofit kits per planning period", value=0)
 
 st.write("""## Activation Footprint""")
 
-af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=700000)
-af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=200000)
-af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=100000)
-af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=500000)
+af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=70000)
+af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=20000)
+af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=10000)
+af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=50000)
 af = {"F": af_F, "L": af_L, "R": af_R, "V": af_V}
 
 st.write("""## Unit Operation Footprint""")
@@ -244,11 +253,10 @@ st.write("""## Lost Order Footprint""")
 lofPR = st.number_input("Enter the lost order footprint in kg CO2 eq per product", value=27230) # we assume that the car will still be used during 10 years
 lofEoLP = st.number_input("Enter the lost order footprint in kg CO2 eq per EoL product", value=5000)
 
-Z = 1000000
-
+Z = 10000
 data = {
     "collab": collab,
-    "M": demand_scenario.index,
+    "M": demand_scenario["code_commune_titulaire"].unique(),
     "R": df_sets['COM'],
     "V": df_sets['COM'],
     "L": df_sets['COM'],
@@ -296,6 +304,8 @@ data = {
 if st.button("Save Parameters"):
     with open("parameters.pkl", "wb") as f:
         pickle.dump(data, f)
+    st.success("Parameters saved successfully.")
+    st.write("File saved at:", os.path.abspath("parameters.pkl"))
 
 
 

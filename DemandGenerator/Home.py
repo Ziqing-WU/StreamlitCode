@@ -22,6 +22,7 @@ pages = {
         st.Page("Supply1-IntroSupply.py", title="Introduction", icon='🏠'),
         st.Page("Supply2-DataPrep.py", title="Data Input", icon='🔢'),
         st.Page("Supply3-Model.py", title="Optimisation Model", icon='🧮'),
+        st.Page("Supply4-Result.py", title="Result Analysis", icon='🔍')
     ]
 }
 
