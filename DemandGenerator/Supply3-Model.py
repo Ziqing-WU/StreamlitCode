@@ -137,7 +137,7 @@ os.makedirs(destination_path, exist_ok=True)
 os.rename(file_name, destination_path+file_name)
 
 demand = demand.set_index("code_commune_titulaire", drop=True)
-st.write(demand)
+# st.write(demand)
 
 model = Model(collab)
 F = F.apply(lambda x: f"{x}F")
@@ -273,8 +273,8 @@ if collab == "Integrated":
     facility_activation = model.addConstrs((x[j, t] <= x[j, t + 1] for j in J for t in T[:-1]), name="facility_activation")
 
 if collab == "Together":
-    facility_activation_F = model.addConstrs((x[j, t] == x[j, t + 1] for j in F for t in T[:-1]), name="facility_activation_F")
-    facility_activation_V = model.addConstrs((x[j, t] == x[j, t + 1] for j in V for t in T[:-1]), name="facility_activation_V")
+    facility_activation_F = model.addConstrs((x[j, t] <= x[j, t + 1] for j in F for t in T[:-1]), name="facility_activation_F")
+    facility_activation_V = model.addConstrs((x[j, t] <= x[j, t + 1] for j in V for t in T[:-1]), name="facility_activation_V")
 
 for r in R:
     for m in M:
@@ -286,7 +286,7 @@ for r in R:
                 model.addConstr(z[m, r, t] == 0, name="distance_constraint")
 
 def set_param_optim(m, folder_path, timelimit=None):
-    m.Params.MIPGap = 0.01
+    m.Params.MIPGap = 0.05
     if timelimit:
         m.Params.TimeLimit = timelimit
     m.setParam('OutputFlag', True)

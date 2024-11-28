@@ -9,7 +9,7 @@ st.set_page_config(
 
 
 pages = {
-    "Demand": [
+    "Demand Estimation": [
         st.Page("Demand1-Intro.py", title="Introduction", icon='🏠'),
         st.Page("Demand2-TotalMarket.py",title="Total Market", icon='🌕'),
         st.Page("Demand3-TotalAddressableMarket.py", title="Total Addressable Market", icon='🌔'),
@@ -18,7 +18,7 @@ pages = {
         st.Page("Demand6-MarketSharefortheCompany.py", title="Demand Estimation for the Company", icon='🌛'),
         st.Page("Demand7-Scenario.py", title="Scenario Analysis", icon='📊')
     ],
-    "Supply": [
+    "Network Design": [
         st.Page("Supply1-IntroSupply.py", title="Introduction", icon='🏠'),
         st.Page("Supply2-DataPrep.py", title="Data Input", icon='🔢'),
         st.Page("Supply3-Model.py", title="Optimisation Model", icon='🧮'),

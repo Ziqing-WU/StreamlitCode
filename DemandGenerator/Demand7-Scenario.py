@@ -213,22 +213,26 @@ st.plotly_chart(plot_increment_p_q)
 
 
 st.write("## Generate the demand for each scenario")
-# st.write(df_demand_commune)
 if st.button("Download the demand for each scenario"):
     df_demand_p_q = {}
     for scenario in scenarios:
-        for index, row in df_p_q.iterrows():
-            p = row["p"]
-            q = row["q"]
-            for index,row in df_demand_commune[scenario].iterrows():
-                M = row["retrofit_service"]
+        for idx_pq, row_pq in df_p_q.iterrows():
+            p = row_pq["p"]
+            q = row_pq["q"]
+            
+            # Create a deep copy of the dataframe for the current scenario
+            df_copy = df_demand_commune[scenario].copy(deep=True)
+            
+            for idx_demand, row_demand in df_copy.iterrows():
+                M = row_demand["retrofit_service"]
                 N0 = [0]
-                N = odeint(bass_diff, N0, T, args=(p,q,M)).flatten()
+                N = odeint(bass_diff, N0, T, args=(p, q, M)).flatten()
                 dN = np.diff(N)
                 rounded_dN = np.round(dN).astype(int)
                 rounded_sum = rounded_dN.sum()
+                
                 if rounded_sum > M:
-                    # If sum exceeds market potential, decrement the largest values
+                    # Decrement the largest values
                     excess = rounded_sum - M
                     sorted_indices = np.argsort(dN)
                     for idx in sorted_indices:
@@ -238,7 +242,7 @@ if st.button("Download the demand for each scenario"):
                             rounded_dN[idx] -= 1
                             excess -= 1
                 elif rounded_sum < M:
-                    # If sum is less than market potential, increment the smallest values
+                    # Increment the smallest values
                     deficit = M - rounded_sum
                     sorted_indices = np.argsort(-dN)
                     for idx in sorted_indices:
@@ -246,10 +250,15 @@ if st.button("Download the demand for each scenario"):
                             break
                         rounded_dN[idx] += 1
                         deficit -= 1
-                df_demand_commune[scenario].loc[index, np.arange(1, T_max + 1)] = rounded_dN
-            df_demand_p_q[scenario + "_p=" + str(p) + "_q=" + str(q) ] = df_demand_commune[scenario]
+                
+                # Assign the adjusted values back to the copy
+                df_copy.loc[idx_demand, np.arange(1, T_max + 1)] = rounded_dN
+            
+            # Store the modified copy in the dictionary
+            key = f"{scenario}_p={p}_q={q}"
+            df_demand_p_q[key] = df_copy
     
     with open("demand.pickle", "wb") as f:
         pickle.dump(df_demand_p_q, f)
 
-    st.write(df_demand_p_q)
+    # st.write(df_demand_p_q)

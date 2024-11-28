@@ -152,6 +152,7 @@ cython_debug/
 #.idea/
 
 data_precharged
+experimentations
 scenarios
 *.pickle
 *.pkl

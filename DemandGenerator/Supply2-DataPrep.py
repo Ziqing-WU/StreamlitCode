@@ -206,13 +206,13 @@ st.write("""## Facility Capacities
 ### Maximum Capacities
 """)
 
-maxcapMN = st.number_input("Enter the maximum capacity of a factory for manufacturing per planning period", value=1000)
+maxcapMN = st.number_input("Enter the maximum capacity of a factory for manufacturing per planning period", value=3000)
 maxcapRMN = st.number_input("Enter the maximum capacity of a factory for remanufacturing per planning period", value=500)
-maxcapH = st.number_input("Enter the maximum capacity of a logistic node for handling per planning period", value=1000)
-maxcapR = st.number_input("Enter the maximum capacity of a retrofit centre for retrofitting per planning period", value=40)
-maxcapDP = st.number_input("Enter the maximum capacity of a retrofit centre for dismantling per planning period", value=10)
-maxcapRF = st.number_input("Enter the maximum capacity of a recovery centre for refurbishing per planning period", value=100)
-maxcapDRU = st.number_input("Enter the maximum capacity of a recovery centre for dismantling retrofit kits per planning period", value=50)
+maxcapH = st.number_input("Enter the maximum capacity of a logistic node for handling per planning period", value=2000)
+maxcapR = st.number_input("Enter the maximum capacity of a retrofit centre for retrofitting per planning period", value=500)
+maxcapDP = st.number_input("Enter the maximum capacity of a retrofit centre for dismantling per planning period", value=100)
+maxcapRF = st.number_input("Enter the maximum capacity of a recovery centre for refurbishing per planning period", value=1000)
+maxcapDRU = st.number_input("Enter the maximum capacity of a recovery centre for dismantling retrofit kits per planning period", value=500)
 
 st.write("""### Minimum operating levels""")
 
@@ -226,34 +226,34 @@ molDRU = st.number_input("Enter the minimum operating level of a recovery centre
 
 st.write("""## Activation Footprint""")
 
-af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=70000)
-af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=20000)
-af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=10000)
-af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=50000)
+af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=140000)
+af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=40000)
+af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=20000)
+af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=100000)
 af = {"F": af_F, "L": af_L, "R": af_R, "V": af_V}
 
 st.write("""## Unit Operation Footprint""")
 
-uofMN = st.number_input("Enter the unit operation footprint of a factory for manufacturing per planning period", value=2600)
-uofRMN = st.number_input("Enter the unit operation footprint of a factory for remanufacturing per planning period", value=1200)
-uofH = st.number_input("Enter the unit operation footprint of a logistic node for handling per planning period", value=0.5)
-uofR = st.number_input("Enter the unit operation footprint of a retrofit centre for retrofitting per planning period", value=2)
-uofDP = st.number_input("Enter the unit operation footprint of a retrofit centre for dismantling per planning period", value=0.5)
-uofRF = st.number_input("Enter the unit operation footprint of a recovery centre for refurbishing per planning period", value=0.4)
-uofDRU = st.number_input("Enter the unit operation footprint of a recovery centre for dismantling retrofit kits per planning period", value=0.3)
+uofMN = st.number_input("Enter the unit operation footprint of a factory for manufacturing", value=600)
+uofRMN = st.number_input("Enter the unit operation footprint of a factory for remanufacturing", value=200)
+uofH = st.number_input("Enter the unit operation footprint of a logistic node for handling", value=0.5)
+uofR = st.number_input("Enter the unit operation footprint of a retrofit centre for retrofitting", value=2)
+uofDP = st.number_input("Enter the unit operation footprint of a retrofit centre for dismantling", value=0.5)
+uofRF = st.number_input("Enter the unit operation footprint of a recovery centre for refurbishing", value=0.4)
+uofDRU = st.number_input("Enter the unit operation footprint of a recovery centre for dismantling retrofit kits", value=0.3)
 
 st.write("""## Transportation""")
 pl_TR = st.number_input("Enter the payload capacity in kg of a transport unit", value=3000)
-tf_TR = st.number_input("Enter the transportation footprint in kg CO2 eq per km of a transport unit", value=0.4212) # data from ADEME for 80% payload rate
+tf_TR = st.number_input("Enter the transportation footprint in kg CO2 eq per km of a transport unit", value=0.6) # 0.4242*1.4  data from ADEME for 80% payload rate
 fr_TR = st.number_input("Enter the filling rate of a transport unit", value=0.8)
 utf_PR = st.number_input("Enter the average transport footprint in kg CO2 eq per km for products to be retrofitted", value=0.231)
 utf_RP = st.number_input("Enter the average transport footprint in kg CO2 eq per km for retrofitted products", value=0)
 
 st.write("""## Lost Order Footprint""")
-lofPR = st.number_input("Enter the lost order footprint in kg CO2 eq per product", value=27230) # we assume that the car will still be used during 10 years
-lofEoLP = st.number_input("Enter the lost order footprint in kg CO2 eq per EoL product", value=5000)
+lofPR = st.number_input("Enter the lost order footprint in kg CO2 eq per product", value=11000) # we assume that the car will still be used during 5 years
+lofEoLP = st.number_input("Enter the lost order footprint in kg CO2 eq per EoL product", value=500)
 
-Z = 10000
+Z = 5000
 data = {
     "collab": collab,
     "M": demand_scenario["code_commune_titulaire"].unique(),
