@@ -29,18 +29,31 @@ st.write("# Sets")
 st.write(f"""
 We consider that the potential locations for all the facilities are the same. These are selected based on the population of the communes.
 """)
-n = st.number_input("Enter the population threshold for the potential locations", value=10000)
+n = st.number_input("Enter the population threshold for the potential locations", value=20000, step=1000)
 df_sets = get_communes_by_population(n)
 st.write(f"""
 The number of potential locations for all facilities with population superior to {n} is {df_sets.shape[0]}. There distribution on the territory is shown in the following map.
 """)
 
-fig = px.scatter_mapbox(df_sets, lat="Latitude", lon="Longitude", mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2})
+fig = px.scatter_mapbox(df_sets, lat="Latitude", lon="Longitude", hover_data = 'COM', mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2})
 st.plotly_chart(fig)
 
-st.write(f"""
-$R$, $V$, $L$, $F$ are thus defined by these {df_sets.shape[0]} communes.
+R = get_communes_by_population(n)["COM"]
+R = st.multiselect("Select the potential locations for the retrofit centers", R, default = ["11069","12145","12202","30189","31557","32013","34301","65440","66136","81004","82121"])
+if st.button("Show selected locations", key="R"):
+    fig = px.scatter_mapbox(df_sets[df_sets['COM'].isin(R)], lat="Latitude", lon="Longitude", hover_data = 'COM', mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2})
+    st.plotly_chart(fig)
 
+F = st.multiselect("Select the potential locations for the factories, logistics nodes, and recovery centers", df_sets["COM"].values, default = ["30189","34032", "31555", "66136", "81065"])
+if st.button("Show selected locations", key="F"):
+    fig = px.scatter_mapbox(df_sets[df_sets['COM'].isin(F)], lat="Latitude", lon="Longitude", hover_data = 'COM', mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2})
+    st.plotly_chart(fig)
+
+L = F 
+V = F
+
+
+st.write(f"""
 To simplify the model solution without loss of generality, in this case, we do not differentiate the various types of products, even if the model allows us to do so.
 
 $P = [p]$
@@ -77,68 +90,83 @@ st.write("""
 scenario = st.selectbox("Select the demand scenario to visualize", list(demand.keys()), index=0)
 demand_scenario = demand[scenario]
 st.write(f"The number of demand points is {len(demand_scenario)}")
+
+if collab == "Hyperconnected":
+    # monthly_weights = np.array([7.0, 7.0, 7.5, 8.0, 8.0, 8.0, 
+    #                                7.5, 7.5, 8.0, 8.0, 8.0, 7.0])
+    monthly_weights = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 
+                                   1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    monthly_weights = monthly_weights / monthly_weights.sum()
+    annual_columns = [i for i in range(1, 21)]
+    # Melt the dataframe to long format for annual demands
+    demand_scenario = demand_scenario.melt(id_vars=['code_commune_titulaire', 'Number of Vehicles', 
+                            'Longitude', 'Latitude'], 
+                    value_vars=annual_columns,
+                    var_name='Year', 
+                    value_name='Annual_Demand')
+
+    # Convert 'Year' to integer
+    demand_scenario['Year'] = demand_scenario['Year'].astype(int)
+    # Repeat each row 12 times for 12 months
+    demand_scenario_expanded = demand_scenario.loc[demand_scenario.index.repeat(12)].reset_index(drop=True)
+    
+    # Assign month numbers (1 to 12)
+    demand_scenario_expanded['Month'] = np.tile(np.arange(1, 13), len(demand_scenario))
+
+    # Assign corresponding monthly weights
+    demand_scenario_expanded['Monthly_Weight'] = np.tile(monthly_weights, len(demand_scenario))
+
+    # Calculate monthly demand
+    demand_scenario_expanded['Monthly_Demand'] = demand_scenario_expanded['Annual_Demand'] * demand_scenario_expanded['Monthly_Weight']
+
+    # Floor the monthly demands
+    demand_scenario_expanded['Monthly_Demand_Floor'] = np.floor(demand_scenario_expanded['Monthly_Demand']).astype(int)
+
+
+    # Calculate the remaining demand to distribute
+    demand_scenario_expanded['Remaining'] = demand_scenario_expanded['Annual_Demand'] - demand_scenario_expanded.groupby(
+        ['code_commune_titulaire', 'Year'])['Monthly_Demand_Floor'].transform('sum')
+
+    # Calculate the fractional parts
+    demand_scenario_expanded['Fraction'] = demand_scenario_expanded['Monthly_Demand'] - np.floor(demand_scenario_expanded['Monthly_Demand'])
+
+    # Step 4: Sort the dataframe to prioritize months with higher fractional parts
+    np.random.seed(42)  # For reproducibility; remove or change the seed as needed
+    demand_scenario_expanded['RandomOrder'] = np.random.rand(len(demand_scenario_expanded))
+    demand_scenario_expanded = demand_scenario_expanded.sort_values(
+    by=['code_commune_titulaire', 'Year', 'Fraction', 'RandomOrder'],
+    ascending=[True, True, False, True]  # 'Fraction' descending, 'RandomOrder' ascending
+    ).reset_index(drop=True)
+    demand_scenario_expanded = demand_scenario_expanded.drop(columns=['RandomOrder'])
+    # Step 5: Assign the remaining demand
+    def distribute_remaining(group):
+        remaining = group['Remaining'].iloc[0]
+        remaining = int(min(remaining, len(group)))
+        if remaining > 0:
+            group.loc[group.index[:remaining], 'Monthly_Demand_Floor'] += 1
+        return group
+    demand_scenario_expanded = demand_scenario_expanded.groupby(['code_commune_titulaire', 'Year']).apply(distribute_remaining).reset_index(drop=True)
+    # Step 6: Rename the final monthly demand column
+    demand_scenario_expanded['Monthly_Demand_Final'] = demand_scenario_expanded['Monthly_Demand_Floor']
+
+    # Drop intermediate columns
+    demand_scenario = demand_scenario_expanded.drop(['Monthly_Weight', 'Monthly_Demand', 'Monthly_Demand_Floor', 'Remaining', 'Fraction'], axis=1)
+    demand_scenario["Month_Count"] = (demand_scenario["Year"]-1) * 12 + demand_scenario["Month"]
+
+    demand_scenario = demand_scenario.pivot_table(
+    index=['code_commune_titulaire', 'Number of Vehicles', 'Longitude', 'Latitude'],
+    columns='Month_Count',
+    values='Monthly_Demand_Final',
+    aggfunc='sum'  # or 'mean', 'max', etc., depending on your needs
+    ).reset_index()
+
+st.write(demand_scenario)
 fig = px.scatter_mapbox(demand_scenario, lat="Latitude", lon="Longitude", size="Number of Vehicles", mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2}, color_continuous_scale='Greys')
-fig_line = px.line(x=demand_scenario.sum().index[2:-2], y=demand_scenario.sum().values[2:-2], title='Total Demand', labels={'x':'Year', 'y':'Number of Vehicles'})
-
-# if collab == "Hyperconnected":
-#     st.write(demand_scenario)
-#     monthly_weights = np.array([7, 6, 8, 9, 8, 8, 7, 7, 8, 7, 9, 6])
-#     monthly_weights = monthly_weights / monthly_weights.sum()
-#     annual_columns = [i for i in range(1, 21)]
-#     # Melt the dataframe to long format for annual demands
-#     demand_scenario = demand_scenario.melt(id_vars=['code_commune_titulaire', 'Number of Vehicles', 
-#                             'Longitude', 'Latitude'], 
-#                     value_vars=annual_columns,
-#                     var_name='Year', 
-#                     value_name='Annual_Demand')
-
-#     # Convert 'Year' to integer
-#     demand_scenario['Year'] = demand_scenario['Year'].astype(int)
-#     st.write(demand_scenario)
-#     # Repeat each row 12 times for 12 months
-#     demand_scenario_expanded = demand_scenario.loc[demand_scenario.index.repeat(12)].reset_index(drop=True)
-
-#     # Assign month numbers (1 to 12)
-#     demand_scenario_expanded['Month'] = np.tile(np.arange(1, 13), len(demand_scenario))
-
-#     # Assign corresponding monthly weights
-#     demand_scenario_expanded['Monthly_Weight'] = np.tile(monthly_weights, len(demand_scenario))
-
-#     # Calculate monthly demand
-#     demand_scenario_expanded['Monthly_Demand'] = demand_scenario_expanded['Annual_Demand'] * demand_scenario_expanded['Monthly_Weight']
-#     st.write(demand_scenario_expanded)
-
-#     # Floor the monthly demands
-#     demand_scenario_expanded['Monthly_Demand_Floor'] = np.floor(demand_scenario_expanded['Monthly_Demand']).astype(int)
-
-#     # Calculate the remaining demand to distribute
-#     demand_scenario_expanded['Remaining'] = demand_scenario_expanded['Annual_Demand'] - demand_scenario_expanded.groupby(
-#         ['code_commune_titulaire', 'Year'])['Monthly_Demand_Floor'].transform('sum')
-
-#     # Calculate the fractional parts
-#     demand_scenario_expanded['Fraction'] = demand_scenario_expanded['Monthly_Demand'] - np.floor(demand_scenario_expanded['Monthly_Demand'])
-
-#     # Step 4: Sort the dataframe to prioritize months with higher fractional parts
-#     demand_scenario_expanded = demand_scenario_expanded.sort_values(
-#         by=['code_commune_titulaire', 'Year', 'Fraction'], ascending=[True, True, False]
-#     ).reset_index(drop=True)
-
-#     # Step 5: Assign the remaining demand
-#     def distribute_remaining(group):
-#         remaining = group['Remaining'].iloc[0]
-#         if remaining > 0:
-#             group.loc[group.index[:remaining], 'Monthly_Demand_Floor'] += 1
-#         return group
-
-#     demand_scenario_expanded = demand_scenario_expanded.groupby(['code_commune_titulaire', 'Year']).apply(distribute_remaining).reset_index(drop=True)
-
-#     # Step 6: Rename the final monthly demand column
-#     demand_scenario_expanded['Monthly_Demand_Final'] = demand_scenario_expanded['Monthly_Demand_Floor']
-#     st.write(demand_scenario_expanded)
-
-#     # Drop intermediate columns
-#     df_long_expanded = df_long_expanded.drop(['Monthly_Demand', 'Monthly_Demand_Floor', 'Remaining', 'Fraction'], axis=1)
-
+if collab == "Integrated" or collab == "Together":
+    x_title = "Year"
+else:
+    x_title = "Month"
+fig_line = px.line(x=demand_scenario.sum().loc[T].index, y=demand_scenario.sum().loc[T].values, title='Total Demand', labels={'x':x_title, 'y':'Number of Vehicles'})
 
 col1, col2 = st.columns(2)
 with col1:
@@ -151,12 +179,18 @@ The probability that a retrofitted product reaches its end of life after year $\
 We assume that the lifecycle of the retrofitted vehicles follows the same pattern as the new average vehicle in the French market.
 However the parameters can be adjusted here as well.
 """)
-beta = st.number_input("Enter the shape parameter of the Weibull distribution", value=6)
-gamma = st.number_input("Enter the mean parameter of the Weibull distribution", value=15.2)
 
-pb_tau = {tau:calculate_cum_distribution_function(tau, beta_shape=beta, gamma_mean = gamma) for tau in range(1, 21)}
-plot_tau = px.line(x=pb_tau.keys(), y=pb_tau.values(), title='CDF of Weibull Distribution', labels={'x':'Year', 'y':'Probability'})
+if collab == "Integrated" or collab == "Together":
+    beta = st.number_input("Enter the shape parameter of the Weibull distribution", value=6)
+    gamma = st.number_input("Enter the mean parameter (in years) of the Weibull distribution", value=15.2)
+else:
+    beta = st.number_input("Enter the shape parameter of the Weibull distribution", value=6)
+    gamma = st.number_input("Enter the mean parameter (in months) of the Weibull distribution", value=15.2*12)
+
+pb_tau = {tau:calculate_cum_distribution_function(tau, beta_shape=beta, gamma_mean = gamma) for tau in T}
+plot_tau = px.line(x=pb_tau.keys(), y=pb_tau.values(), title='CDF of Weibull Distribution', labels={'x':x_title, 'y':'Probability'})
 st.plotly_chart(plot_tau)
+
 
 st.write("""
 ## Distance
@@ -206,13 +240,22 @@ st.write("""## Facility Capacities
 ### Maximum Capacities
 """)
 
-maxcapMN = st.number_input("Enter the maximum capacity of a factory for manufacturing per planning period", value=3000)
-maxcapRMN = st.number_input("Enter the maximum capacity of a factory for remanufacturing per planning period", value=500)
-maxcapH = st.number_input("Enter the maximum capacity of a logistic node for handling per planning period", value=2000)
-maxcapR = st.number_input("Enter the maximum capacity of a retrofit centre for retrofitting per planning period", value=500)
-maxcapDP = st.number_input("Enter the maximum capacity of a retrofit centre for dismantling per planning period", value=100)
-maxcapRF = st.number_input("Enter the maximum capacity of a recovery centre for refurbishing per planning period", value=1000)
-maxcapDRU = st.number_input("Enter the maximum capacity of a recovery centre for dismantling retrofit kits per planning period", value=500)
+if collab == "Hyperconnected":
+    maxcapMN = st.number_input("Enter the maximum capacity of a factory for manufacturing per planning period", value=11000/12)
+    maxcapRMN = st.number_input("Enter the maximum capacity of a factory for remanufacturing per planning period", value=2200/12)
+    maxcapH = st.number_input("Enter the maximum capacity of a logistic node for handling per planning period", value=11000/12)
+    maxcapR = st.number_input("Enter the maximum capacity of a retrofit centre for retrofitting per planning period", value=5000/12)
+    maxcapDP = st.number_input("Enter the maximum capacity of a retrofit centre for dismantling per planning period", value=1000/12)
+    maxcapRF = st.number_input("Enter the maximum capacity of a recovery centre for refurbishing per planning period", value=3000/12)
+    maxcapDRU = st.number_input("Enter the maximum capacity of a recovery centre for dismantling retrofit kits per planning period", value=1000/12)
+else:
+    maxcapMN = st.number_input("Enter the maximum capacity of a factory for manufacturing per planning period", value=11000)
+    maxcapRMN = st.number_input("Enter the maximum capacity of a factory for remanufacturing per planning period", value=2200)
+    maxcapH = st.number_input("Enter the maximum capacity of a logistic node for handling per planning period", value=11000)
+    maxcapR = st.number_input("Enter the maximum capacity of a retrofit centre for retrofitting per planning period", value=5000)
+    maxcapDP = st.number_input("Enter the maximum capacity of a retrofit centre for dismantling per planning period", value=1000)
+    maxcapRF = st.number_input("Enter the maximum capacity of a recovery centre for refurbishing per planning period", value=3000)
+    maxcapDRU = st.number_input("Enter the maximum capacity of a recovery centre for dismantling retrofit kits per planning period", value=1000)
 
 st.write("""### Minimum operating levels""")
 
@@ -225,11 +268,20 @@ molRF = st.number_input("Enter the minimum operating level of a recovery centre 
 molDRU = st.number_input("Enter the minimum operating level of a recovery centre for dismantling retrofit kits per planning period", value=0)
 
 st.write("""## Activation Footprint""")
+if collab == "Hyperconnected":
+    af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=160000/12)
+    af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=50000/12)
+    af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=20000/12)
+    af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=100000/12)
+else:
+    af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=160000)
+    af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=50000)
+    af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=20000)
+    af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=100000)
 
-af_F = st.number_input("Enter the amortized activation footprint of a factory per planning period", value=140000)
-af_L = st.number_input("Enter the amortized activation footprint of a logistic node per planning period", value=40000)
-af_R = st.number_input("Enter the amortized activation footprint of a retrofit centre per planning period", value=20000)
-af_V = st.number_input("Enter the amortized activation footprint of a recovery centre per planning period", value=100000)
+
+
+
 af = {"F": af_F, "L": af_L, "R": af_R, "V": af_V}
 
 st.write("""## Unit Operation Footprint""")
@@ -257,10 +309,10 @@ Z = 5000
 data = {
     "collab": collab,
     "M": demand_scenario["code_commune_titulaire"].unique(),
-    "R": df_sets['COM'],
-    "V": df_sets['COM'],
-    "L": df_sets['COM'],
-    "F": df_sets['COM'],
+    "R": R,
+    "V": V,
+    "L": L,
+    "F": F,
     "P": P,
     "T": T,
     "demand": demand_scenario,
@@ -301,13 +353,17 @@ data = {
     "D_max": D_max
 }
 
+# if st.button("Save Parameters"):
+#     with open("parameters.pkl", "wb") as f:
+#         pickle.dump(data, f)
+#     st.success("Parameters saved successfully.")
+#     st.write("File saved at:", os.path.abspath("parameters.pkl"))
+
 if st.button("Save Parameters"):
-    with open("parameters.pkl", "wb") as f:
+    with open(f"parameters_{collab}_{scenario}_r{len(R)}_f{len(F)}.pkl", "wb") as f:
         pickle.dump(data, f)
     st.success("Parameters saved successfully.")
-    st.write("File saved at:", os.path.abspath("parameters.pkl"))
-
-
+    st.write("File saved at:", os.path.abspath(f"parameters_{collab}_{scenario}_r{len(R)}_f{len(F)}.pkl"))
 
 
 

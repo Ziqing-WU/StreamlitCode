@@ -11,8 +11,10 @@ scenario = st.selectbox("Select a scenario", scenarios)
 entries = os.listdir(f"experimentations/{scenario}")
 entry = st.selectbox("Select an experiment", entries)
 folder_path = "experimentations/" + scenario + "/" + entry
-
-with open(f"{folder_path}/parameters.pkl", "rb") as f:
+pattern = os.path.join(folder_path, 'parameters*.pkl')
+matched_files = glob.glob(pattern)
+file_to_open = matched_files[0]
+with open(file_to_open, "rb") as f:
     params = pickle.load(f)
 st.write(params)
 
