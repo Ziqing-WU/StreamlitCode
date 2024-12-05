@@ -7,7 +7,7 @@ with st.sidebar:
 
 st.header("Settings")
 scenarios = os.listdir("experimentations")
-scenario = st.selectbox("Select a scenario", scenarios)
+scenario = st.selectbox("Select a collaborative strategy", scenarios)
 entries = os.listdir(f"experimentations/{scenario}")
 entry = st.selectbox("Select an experiment", entries)
 folder_path = "experimentations/" + scenario + "/" + entry
@@ -16,13 +16,10 @@ matched_files = glob.glob(pattern)
 file_to_open = matched_files[0]
 with open(file_to_open, "rb") as f:
     params = pickle.load(f)
-st.write(params)
+# st.write(params)
 
 st.header("Result Analysis")
-
-
 px.set_mapbox_access_token("pk.eyJ1Ijoiend1LTE5IiwiYSI6ImNsNnc3a3Z3czA1dHUzY28xZjd6dzlvZDgifQ.BiY-VgoH8CR03_PckJLbpA")
-
 file_path = folder_path + "/results.csv"
 
 zoom_plotly = 6
@@ -33,9 +30,15 @@ height_map = 400
 df_occitanie = get_communes_by_population(0)
 # st.write(df_occitanie)
 
-df_results = pd.read_csv(file_path, index_col=0)
-st.write(df_results)
 
+if scenario == "Integrated" or scenario == "Together":
+    df_results = pd.read_csv(file_path, index_col=0)
+    st.write(df_results)
+else:
+    csv_files = glob.glob(folder_path+"/results*.csv")
+    df_results = pd.concat([pd.read_csv(f, index_col=0) for f in csv_files])
+
+    st.write(df_results.groupby("Type").sum())
 
 '''
 ## Market Fulfillment
@@ -309,3 +312,4 @@ folium_static(m)
 decomp = df_results.iloc[2:6,:]
 decomp["Percentage"] = decomp["Value"]/df_results.iloc[1,1]
 st.plotly_chart(px.treemap(decomp, path=['Type'], values='Percentage', title="Footprint decomposition"))
+

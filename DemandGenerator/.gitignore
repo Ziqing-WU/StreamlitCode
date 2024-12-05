@@ -156,3 +156,4 @@ experimentations
 scenarios
 *.pickle
 *.pkl
+mapbox_token.txt

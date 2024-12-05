@@ -162,6 +162,31 @@ if collab == "Hyperconnected":
 
 st.write(demand_scenario)
 fig = px.scatter_mapbox(demand_scenario, lat="Latitude", lon="Longitude", size="Number of Vehicles", mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2}, color_continuous_scale='Greys')
+
+map_R = df_sets[df_sets['COM'].isin(R)]
+map_F = df_sets[df_sets['COM'].isin(F)]
+st.write(map_R)
+fig.add_trace(go.Scattermapbox(
+    lat=map_F["Latitude"],
+    lon=map_F["Longitude"],
+    mode='markers',
+    marker=go.scattermapbox.Marker(size=12, color='yellow'),
+    name='Potential Locations <br> for Factories, <br>Logistics Nodes, <br>and Recovery Centers',
+    showlegend=True
+))
+
+fig.add_trace(go.Scattermapbox(
+    lat=map_R["Latitude"],
+    lon=map_R["Longitude"],
+    mode='markers',
+    marker=go.scattermapbox.Marker(size=8, color='red'),
+    name='Potential Locations <br> for Retrofit Centers',
+    showlegend=True
+))
+
+
+
+
 if collab == "Integrated" or collab == "Together":
     x_title = "Year"
 else:

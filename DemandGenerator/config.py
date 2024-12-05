@@ -34,8 +34,6 @@ from folium.plugins import MarkerCluster
 from collections import defaultdict
 
 
-
-
 current_year = 2024
 # The existing product data source
 source_path = r'C:\Users\zwu\Documents\Data\Vehicle\occitanie_cleaned_code_INSEE.csv'
