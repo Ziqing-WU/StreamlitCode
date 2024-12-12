@@ -19,114 +19,114 @@ collab, M, R, V, L, F, P, T, demand, pb_EoL, dist, maxcapMN, maxcapRMN, maxcapH,
 
 st.write(f"The collaborative strategy of the selected dataset is {collab}.")
 
-st.write(
-    """
-    ### Decision Variables
+# st.write(
+#     """
+#     ### Decision Variables
 
 
-    ## Objective Function
+#     ## Objective Function
 
-""")
+# """)
 
-st.write(
-        """
-    ## Constraints
+# st.write(
+#         """
+#     ## Constraints
     
 
-    """)
+#     """)
 
-if collab == "Integrated" or collab == "Together":
-    st.write("""
+# if collab == "Integrated" or collab == "Together":
+#     st.write("""
 
-    > **Warning:** In the *integrated* and *together* scenario, paths between logistics nodes are not permitted, leading to this constraint.
+#     > **Warning:** In the *integrated* and *together* scenario, paths between logistics nodes are not permitted, leading to this constraint.
 
-    $$
-    \\begin{align}
-    z_{ll't} = 0 \\quad \\forall l \\in L, \\forall l' \\in L, \\forall t \\in T
-    \\end{align}
-    $$
-    """)
+#     $$
+#     \\begin{align}
+#     z_{ll't} = 0 \\quad \\forall l \\in L, \\forall l' \\in L, \\forall t \\in T
+#     \\end{align}
+#     $$
+#     """)
 
-if collab == "Integrated":  
-    st.write("""
-    ### Dedicated Logistics Paths
+# if collab == "Integrated":  
+#     st.write("""
+#     ### Dedicated Logistics Paths
 
-    In the *integrated* scenario, a tightly controlled logistics strategy is adopted, where specific facilities are designated to interact exclusively with certain other facilities.
+#     In the *integrated* scenario, a tightly controlled logistics strategy is adopted, where specific facilities are designated to interact exclusively with certain other facilities.
 
-    Each factory sends parts to at most one designated logistics node, with the assignment consistent across planning periods.
+#     Each factory sends parts to at most one designated logistics node, with the assignment consistent across planning periods.
 
-    $$
-    \\begin{align}
-    \\sum_{l \\in L} z_{flt} \\leq 1 \\quad &\\forall f \\in F, \\forall t \\in T \\\\
-    z_{flt} = z_{fl(t+1)} \\quad &\\forall f \\in F, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
-    \\end{align}
-    $$
+#     $$
+#     \\begin{align}
+#     \\sum_{l \\in L} z_{flt} \\leq 1 \\quad &\\forall f \\in F, \\forall t \\in T \\\\
+#     z_{flt} = z_{fl(t+1)} \\quad &\\forall f \\in F, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
+#     \\end{align}
+#     $$
 
-    Each retrofit centre is served solely by a specific logistics node, with the assignment consistent across planning periods.
+#     Each retrofit centre is served solely by a specific logistics node, with the assignment consistent across planning periods.
 
-    $$
-    \\begin{align}
-    \\sum_{l \\in L} z_{lrtt} \\leq 1 \\quad &\\forall r \\in R, \\forall t \\in T \\\\
-    z_{lrtt} = z_{lr(t+1)} \\quad &\\forall l \\in L, \\forall r \\in R, \\forall t \\in T \\backslash \\{|T|\\}
-    \\end{align}
-    $$
+#     $$
+#     \\begin{align}
+#     \\sum_{l \\in L} z_{lrtt} \\leq 1 \\quad &\\forall r \\in R, \\forall t \\in T \\\\
+#     z_{lrtt} = z_{lr(t+1)} \\quad &\\forall l \\in L, \\forall r \\in R, \\forall t \\in T \\backslash \\{|T|\\}
+#     \\end{align}
+#     $$
 
-    Each retrofit centre interacts with at most one designated recovery centre, with the assignment consistent across planning periods.
+#     Each retrofit centre interacts with at most one designated recovery centre, with the assignment consistent across planning periods.
 
-    $$
-    \\begin{align}
-    \\sum_{v \\in V} z_{rvt} &\\leq 1 \\quad \\forall r \\in R, \\forall t \\in T \\\\
-    z_{rvt} &= z_{rv(t+1)} \\quad \\forall r \\in R, v \\in V, \\forall t \\in T \\backslash \\{|T|\\}
-    \\end{align}
-    $$
+#     $$
+#     \\begin{align}
+#     \\sum_{v \\in V} z_{rvt} &\\leq 1 \\quad \\forall r \\in R, \\forall t \\in T \\\\
+#     z_{rvt} &= z_{rv(t+1)} \\quad \\forall r \\in R, v \\in V, \\forall t \\in T \\backslash \\{|T|\\}
+#     \\end{align}
+#     $$
 
-    Each recovery centre sends items to at most one designated logistics node, with the assignment consistent across planning periods.
+#     Each recovery centre sends items to at most one designated logistics node, with the assignment consistent across planning periods.
 
-    $$
-    \\begin{align}
-    \\sum_{l \\in L} z_{vlt} &\\leq 1 \\quad \\forall v \\in V, \\forall t \\in T \\\\
-    z_{vlt} &= z_{vl(t+1)} \\quad \\forall v \\in V, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
-    \\end{align}
-    $$
-    """)
+#     $$
+#     \\begin{align}
+#     \\sum_{l \\in L} z_{vlt} &\\leq 1 \\quad \\forall v \\in V, \\forall t \\in T \\\\
+#     z_{vlt} &= z_{vl(t+1)} \\quad \\forall v \\in V, \\forall l \\in L, \\forall t \\in T \\backslash \\{|T|\\}
+#     \\end{align}
+#     $$
+#     """)
 
-if collab == "Integrated":
-    st.write("""
-    **Warning:** Facility Activation
+# if collab == "Integrated":
+#     st.write("""
+#     **Warning:** Facility Activation
 
-    In the *integrated* scenario, once a facility is opened, it remains operational for the rest of the planning horizon.
+#     In the *integrated* scenario, once a facility is opened, it remains operational for the rest of the planning horizon.
 
-    $$
-    \\begin{align}
-    x_{jt} \\leq x_{j(t+1)} \\quad \\forall j \\in J, \\forall t \\in T \\backslash \\{|T|\\}
-    \\end{align}
-    $$
-    """)
+#     $$
+#     \\begin{align}
+#     x_{jt} \\leq x_{j(t+1)} \\quad \\forall j \\in J, \\forall t \\in T \\backslash \\{|T|\\}
+#     \\end{align}
+#     $$
+#     """)
 
-st.write("""
-### Distance
+# st.write("""
+# ### Distance
 
-To ensure that market segments are only served by retrofit centres within an acceptable distance, the following constraints are imposed.
+# To ensure that market segments are only served by retrofit centres within an acceptable distance, the following constraints are imposed.
 
-$$
-\\begin{align}
-z_{mrt} \\leq \\mathbf{1}_{\\{d_{rm} \\leq D_{max}\\}} \\quad \\forall m \\in M, \\forall r \\in R, \\forall t \\in T
-\\end{align}
-$$
+# $$
+# \\begin{align}
+# z_{mrt} \\leq \\mathbf{1}_{\\{d_{rm} \\leq D_{max}\\}} \\quad \\forall m \\in M, \\forall r \\in R, \\forall t \\in T
+# \\end{align}
+# $$
 
-### Non-negativity
+# ### Non-negativity
 
-All flow variables, lost order variables, and EoL demand variables are non-negative.
+# All flow variables, lost order variables, and EoL demand variables are non-negative.
 
-$$
-\\begin{align}
-q_{ii'pt}^{RU}, q_{ii'pt}^{PR}, q_{ii'pt}^{RP}, q_{ii'pt}^{EoLP}, q_{ii'pt}^{EoLRU}, q_{ii'pt}^{EoLPa} &\\geq 0 \\\\
-lo^{PR}_{mpt}, lo^{EoLP}_{mpt} &\\geq 0 \\\\
-dm_{mpt}^{EoLP} &\\geq 0
-\\end{align}
-$$
+# $$
+# \\begin{align}
+# q_{ii'pt}^{RU}, q_{ii'pt}^{PR}, q_{ii'pt}^{RP}, q_{ii'pt}^{EoLP}, q_{ii'pt}^{EoLRU}, q_{ii'pt}^{EoLPa} &\\geq 0 \\\\
+# lo^{PR}_{mpt}, lo^{EoLP}_{mpt} &\\geq 0 \\\\
+# dm_{mpt}^{EoLP} &\\geq 0
+# \\end{align}
+# $$
 
-""")
+# """)
 
 st.write("# Model Implementation")
 
@@ -291,10 +291,10 @@ def def_model(T, q_PR_tau=None, collab=collab, M=M, R=R, V=V, L=L, F=F, P=P, dem
         min_operating_DP = model.addConstrs(quicksum(qEoLP[m, r, t, p] for m in M_for_r[r] for p in P) >= x[r, t] * molDP for r in R for t in T)
     max_capa_RF = model.addConstrs(quicksum(qRU[v, l, t, p] for l in L for p in P) <= x[v, t] * maxcapRF for v in V for t in T)
     if molRF > 10e-4:
-        min_operating_RF = model.addConstrs(quicksum(qRU[v, l, t, p] for l in L for p in P) >= x[v, t] * molRF for v in V for t in T)
+        min_operating_RF = model.addConstrs(quicksum(qRU[v, l, t, p] for l in L for p in P) + quicksum(qEoLPa[v, f, t, p] for f in F for p in P) >= x[v, t] * molRF for v in V for t in T)
     max_capa_DRU = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for f in F for p in P) <= x[v, t] * maxcapDRU for v in V for t in T)
-    if molDRU > 10e-4:
-        min_operating_DRU = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for f in F for p in P) >= x[v, t] * molDRU for v in V for t in T)
+    # if molDRU > 10e-4:
+    #     min_operating_DRU = model.addConstrs(quicksum(qEoLPa[v, f, t, p] for f in F for p in P) >= x[v, t] * molDRU for v in V for t in T)
 
     flow_conservation_F = model.addConstrs((quicksum(qRU[f, l, t, p] for l in L) >= quicksum(qEoLPa[v, f, t, p] for v in V) for f in F for p in P for t in T), name="flow_conservation")
     if collab == "Hyperconnected":
@@ -334,14 +334,15 @@ def def_model(T, q_PR_tau=None, collab=collab, M=M, R=R, V=V, L=L, F=F, P=P, dem
         facility_activation_F = model.addConstrs((x[j, t] <= x[j, t + 1] for j in F for t in T[:-1]), name="facility_activation_F")
         facility_activation_V = model.addConstrs((x[j, t] <= x[j, t + 1] for j in V for t in T[:-1]), name="facility_activation_V")
 
-    max_trans = (demand.loc[:,T].max().max() * wRU) / (pl_TR * fr_TR)
+    max_trans = 10000
+    # (demand.loc[:,T].max().max() * wRU) / (pl_TR * fr_TR)
     qTR_border = model.addConstrs((qTR[i, i2, t]<= max_trans for (i, i2) in A_TR for t in T), name="qTR_border")
     
     q_PR_t = qPR
     return model, CF_FA, CF_OP, CF_TR, CF_LO, q_PR_t
 
 def set_param_optim(m, folder_path, timelimit=None):
-    m.Params.MIPGap = 0.01
+    # m.Params.MIPGap = 0.01
     if timelimit:
         m.Params.TimeLimit = timelimit
     m.setParam('OutputFlag', True)
@@ -355,42 +356,12 @@ def set_param_optim(m, folder_path, timelimit=None):
     m.setParam('LogFile', log_file_path)
     return None
 
-# # Define the callback function
-# def my_callback(model, where):
-#     if where == GRB.Callback.MIPSOL:
-#         # Extract the objective value
-#         obj_val = model.cbGet(GRB.Callback.MIPSOL_OBJ)
-        
-#         # Extract variable values
-#         vars_vals = {}
-#         for var in model.getVars():
-#             val = model.cbGetSolution(var)
-#             if val > 0:
-#                 vars_vals[var.varName] = val
-        
-#         # Prepare intermediate result
-#         # intermediate_obj = {
-#         #     "Model Status": model.status,
-#         #     "Total Footprint": obj_val,
-#         #     "Activation": model.cbGetSolution(CF_FA),
-#         #     "Operation": model.cbGetSolution(CF_OP),
-#         #     "Transport": model.cbGetSolution(CF_TR),
-#         #     "Lost Orders": model.cbGetSolution(CF_LO)
-#         # }
-#         # df_intermediate = pd.DataFrame(intermediate_obj.items(), columns=["Type", "Value"])
-        
-#         # Append variable values
-#         for var_name, var_val in vars_vals.items():
-#             new_row = pd.Series([var_name, var_val], index=df_intermediate.columns)
-#             df_intermediate = pd.concat([df_intermediate, new_row.to_frame().T], ignore_index=True)
-        
-#         # Write to CSV (append mode)
-#         df_intermediate.to_csv(destination_path + "intermediate_results.csv", mode='a', header=False, index=True)
-
 if collab == "Integrated" or collab == "Together":
     model, CF_FA, CF_OP, CF_TR, CF_LO, _ = def_model(T)
+    # model =  model.relax()
     set_param_optim(model, "experimentations/" + collab + "/" + current_time + "/")
     model.optimize()
+    model.write(destination_path + "model.rlp")
     if model.status == GRB.OPTIMAL or model.status == GRB.TIME_LIMIT or model.status == GRB.INTERRUPTED:
         st.write("Optimal solution found with total cost", model.objVal)
         optim_obj = {"Model Status": model.status, "Total footprint": model.objVal, "Activation": CF_FA.getValue(), "Operation": CF_OP.getValue(), "Transport": CF_TR.getValue(), "Lost orders": CF_LO.getValue()}

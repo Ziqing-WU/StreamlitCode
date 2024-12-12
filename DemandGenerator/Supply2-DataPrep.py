@@ -51,7 +51,7 @@ if st.button("Show selected locations", key="F"):
 
 L = F 
 V = F
-
+# F = ["81065"]
 
 st.write(f"""
 To simplify the model solution without loss of generality, in this case, we do not differentiate the various types of products, even if the model allows us to do so.
@@ -66,6 +66,7 @@ $T = [1, 2, 3, ..., 240]$ for hyperconnected scenario
 """)
 P = ["p"]
 T = [i for i in range(1, 21)]
+# T = [i for i in range(1, 5)]
 if collab == "Hyperconnected":
     T = [i for i in range(1, 241)]
 
@@ -161,11 +162,13 @@ if collab == "Hyperconnected":
     ).reset_index()
 
 st.write(demand_scenario)
+# st.write(demand_scenario.sum().loc[T])
+st.write(f"The total demand is {demand_scenario["Number of Vehicles"].sum()}")
 fig = px.scatter_mapbox(demand_scenario, lat="Latitude", lon="Longitude", size="Number of Vehicles", mapbox_style="carto-positron", zoom=5.5, center = {"lat": 43.5, "lon": 2}, color_continuous_scale='Greys')
 
 map_R = df_sets[df_sets['COM'].isin(R)]
 map_F = df_sets[df_sets['COM'].isin(F)]
-st.write(map_R)
+# st.write(map_R)
 fig.add_trace(go.Scattermapbox(
     lat=map_F["Latitude"],
     lon=map_F["Longitude"],
@@ -183,8 +186,6 @@ fig.add_trace(go.Scattermapbox(
     name='Potential Locations <br> for Retrofit Centers',
     showlegend=True
 ))
-
-
 
 
 if collab == "Integrated" or collab == "Together":
@@ -284,13 +285,13 @@ else:
 
 st.write("""### Minimum operating levels""")
 
-molMN = st.number_input("Enter the minimum operating level of a factory for manufacturing per planning period", value=0)
-molRMN = st.number_input("Enter the minimum operating level of a factory for remanufacturing per planning period", value=0)
-molH = st.number_input("Enter the minimum operating level of a logistic node for handling per planning period", value=0)
-molR = st.number_input("Enter the minimum operating level of a retrofit centre for retrofitting per planning period", value=0)
-molDP = st.number_input("Enter the minimum operating level of a retrofit centre for dismantling per planning period", value=0)
-molRF = st.number_input("Enter the minimum operating level of a recovery centre for refurbishing per planning period", value=0)
-molDRU = st.number_input("Enter the minimum operating level of a recovery centre for dismantling retrofit kits per planning period", value=0)
+molMN = st.number_input("Enter the minimum operating level of a factory for manufacturing per planning period", value=0.0)
+molRMN = st.number_input("Enter the minimum operating level of a factory for remanufacturing per planning period", value=0.0)
+molH = st.number_input("Enter the minimum operating level of a logistic node for handling per planning period", value=0.0)
+molR = st.number_input("Enter the minimum operating level of a retrofit centre for retrofitting per planning period", value=0.0)
+molDP = st.number_input("Enter the minimum operating level of a retrofit centre for dismantling per planning period", value=0.0)
+molRF = st.number_input("Enter the minimum operating level of a recovery centre for refurbishing per planning period", value=0.0)
+molDRU = st.number_input("Enter the minimum operating level of a recovery centre for dismantling retrofit kits per planning period", value=0.0)
 
 st.write("""## Activation Footprint""")
 if collab == "Hyperconnected":

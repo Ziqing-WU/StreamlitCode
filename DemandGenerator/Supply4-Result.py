@@ -4,7 +4,18 @@ toc=["Settings", "Result Analysis", "Market Fulfillment", "Facility Location", "
 st.sidebar.title("Navigation")
 with st.sidebar:
     st.markdown("\n".join(f"- [{t}](#{t.replace(' ', '-').lower()})" for t in toc))
-
+icons = {
+        'L': 'warehouse',
+        'R': 'wrench',
+        'V': 'recycle',
+        'F': 'industry'
+    }
+type_colors = {
+    'L': 'blue',  # Blue for 'L'
+    'R': 'red',   # Red for 'R'
+    'V': 'green',  # Green for 'V'
+    'F': 'orange'  # Orange for 'F'
+}
 st.header("Settings")
 scenarios = os.listdir("experimentations")
 scenario = st.selectbox("Select a collaborative strategy", scenarios)
@@ -31,14 +42,16 @@ df_occitanie = get_communes_by_population(0)
 # st.write(df_occitanie)
 
 
-if scenario == "Integrated" or scenario == "Together":
-    df_results = pd.read_csv(file_path, index_col=0)
-    st.write(df_results)
-else:
-    csv_files = glob.glob(folder_path+"/results*.csv")
-    df_results = pd.concat([pd.read_csv(f, index_col=0) for f in csv_files])
+# if scenario == "Integrated" or scenario == "Together":
+df_results = pd.read_csv(file_path, index_col=0)
+st.write(df_results)
+# else:
+#     csv_files = glob.glob(folder_path+"/results*.csv")
+#     df_results = pd.concat([pd.read_csv(f, index_col=0) for f in csv_files])
 
-    st.write(df_results.groupby("Type").sum())
+#     df_results = df_results.groupby("Type").sum().reset_index()
+#     # df_results.to_csv(folder_path+"/results.csv")
+#     st.write(df_results.head(2000))
 
 '''
 ## Market Fulfillment
@@ -90,67 +103,140 @@ dm_PR = dm_PR[['M', 'Product', 'Year', 'Value']]
 
 # Sort the DataFrame
 dm_PR.sort_values(['M', 'Product', 'Year'], inplace=True)
-
-# st.write("dm_PR", dm_PR)
-
-dm_PR = dm_PR.merge(df_occitanie, left_on="M", right_on="COM")
-dm_PR.sort_values(by=["PMUN"], inplace=True)
-fig_bar = px.bar(dm_PR, x="Year", y="Value", color="Commune", title="Demand for retrofit per city")
-fig_bar.update_layout(showlegend=False)
-st.plotly_chart(fig_bar)
-
-dl_PR["Type"] = "Delivered"
-lo_PR["Type"] = "Lost"
-lo_PR = lo_PR.astype({"Year": int})
-PR = pd.concat([dl_PR, lo_PR])
-PR = PR.merge(df_occitanie, left_on="M", right_on="COM")
-st.plotly_chart(px.bar(PR, x="Year", y="Value", color="Type", hover_data="Commune", title="Fulfillment for retrofit"))
-year_PR = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_PR")
-st.plotly_chart(px.scatter_mapbox(PR[PR["Year"]==year_PR], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of retrofit fulfillment"))
-
-
-# Demand for EoL products
-
 dmEoLP = df_results[df_results['Type'].str.startswith('dmEoLP')].copy()
-# st.write(dmEoLP)
-loEoLP = df_results[df_results['Type'].str.startswith('loEoLP')].copy()
+
 dmEoLP["M"] = dmEoLP["Type"].str.extract(r'dmEoLP\[(\d+)')
 dmEoLP["Product"] = dmEoLP["Type"].str.extract(r'dmEoLP\[\d+[A-Z],\d+,(.*?)\]')
 dmEoLP["Year"] = dmEoLP["Type"].str.extract(r'dmEoLP\[\d+[A-Z],(\d+)')
 dmEoLP.drop(columns=["Type"], inplace=True)
 dmEoLP = dmEoLP.merge(df_occitanie, left_on="M", right_on="COM")
 dmEoLP.sort_values(by=["PMUN"], inplace=True)
-# st.write(dmEoLP)
-fig_bar_eol = px.bar(dmEoLP, x="Year", y="Value", color="Commune", title="Demand for EoL products")
-fig_bar_eol.update_layout(showlegend=False)
-st.plotly_chart(fig_bar_eol)
 
 
+
+loEoLP = df_results[df_results['Type'].str.startswith('loEoLP')].copy()
 loEoLP["M"] = loEoLP["Type"].str.extract(r'loEoLP\[(\d+)')
 loEoLP["Product"] = loEoLP["Type"].str.extract(r'loEoLP\[\d+[A-Z],\d+,(.*?)\]')
 loEoLP["Year"] = loEoLP["Type"].str.extract(r'loEoLP\[\d+[A-Z],(\d+)')
 loEoLP.drop(columns=["Type"], inplace=True)
-# st.write(dmEoLP, loEoLP)
+# st.write("dm_PR", dm_PR)
 
-dlEoLP = dmEoLP[['M', 'Product', 'Year']].copy()
-for row in dlEoLP.iterrows():
-    lo = loEoLP[(loEoLP["M"]==row[1]["M"]) & (loEoLP["Product"]==row[1]["Product"]) & (loEoLP["Year"]==row[1]["Year"])]
-    if lo.shape[0] == 0:
-        dlEoLP.loc[row[0], "Value"] = dmEoLP[(dmEoLP["M"]==row[1]["M"]) & (dmEoLP["Product"]==row[1]["Product"]) & (dmEoLP["Year"]==row[1]["Year"])].Value.values[0]
-    else:
-        dlEoLP.loc[row[0], "Value"] = dmEoLP[(dmEoLP["M"]==row[1]["M"]) & (dmEoLP["Product"]==row[1]["Product"]) & (dmEoLP["Year"]==row[1]["Year"])].Value.values[0] - lo.Value.values[0]
-# st.write(dlEoLP)
-dlEoLP["Type"] = "Delivered"
-loEoLP["Type"] = "Lost"
-EoLP = pd.concat([dlEoLP, loEoLP])
-EoLP = EoLP.merge(df_occitanie, left_on="M", right_on="COM")
+if scenario == "Integrated" or scenario == "Together":
+    dm_PR = dm_PR.merge(df_occitanie, left_on="M", right_on="COM")
+    dm_PR.sort_values(by=["PMUN"], inplace=True)
+    fig_bar = px.bar(dm_PR, x="Year", y="Value", color="Commune", title="Demand for retrofit per city")
+    fig_bar.update_layout(showlegend=False)
+    st.plotly_chart(fig_bar)
 
-st.plotly_chart(px.bar(EoLP, x="Year", y="Value", color="Type", hover_data='Commune', title="Fulfillment for EoL products"))
+    dl_PR["Type"] = "Delivered"
+    lo_PR["Type"] = "Lost"
+    lo_PR = lo_PR.astype({"Year": int})
+    PR = pd.concat([dl_PR, lo_PR])
+    PR = PR.merge(df_occitanie, left_on="M", right_on="COM")
+    st.plotly_chart(px.bar(PR, x="Year", y="Value", color="Type", hover_data="Commune", title="Fulfillment for retrofit"))
+    st.write(f"The lost retrofit order is {lo_PR['Value'].sum()}")
+    year_PR = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_PR")
+    fig = px.scatter_mapbox(PR[PR["Year"]==year_PR], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of retrofit fulfillment")
+    st.plotly_chart(fig)
+    
+    fig_bar_eol = px.bar(dmEoLP, x="Year", y="Value", color="Commune", title="Demand for EoL products")
+    fig_bar_eol.update_layout(showlegend=False)
+    st.plotly_chart(fig_bar_eol)
 
-year_EoLP = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_EoLP")
-st.plotly_chart(px.scatter_mapbox(EoLP[EoLP["Year"]==str(year_EoLP)], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of EoL fulfillment"))
+    # Demand for EoL products
+    
+    # st.write(dmEoLP, loEoLP)
+
+    dlEoLP = dmEoLP[['M', 'Product', 'Year']].copy()
+    for row in dlEoLP.iterrows():
+        lo = loEoLP[(loEoLP["M"]==row[1]["M"]) & (loEoLP["Product"]==row[1]["Product"]) & (loEoLP["Year"]==row[1]["Year"])]
+        if lo.shape[0] == 0:
+            dlEoLP.loc[row[0], "Value"] = dmEoLP[(dmEoLP["M"]==row[1]["M"]) & (dmEoLP["Product"]==row[1]["Product"]) & (dmEoLP["Year"]==row[1]["Year"])].Value.values[0]
+        else:
+            dlEoLP.loc[row[0], "Value"] = dmEoLP[(dmEoLP["M"]==row[1]["M"]) & (dmEoLP["Product"]==row[1]["Product"]) & (dmEoLP["Year"]==row[1]["Year"])].Value.values[0] - lo.Value.values[0]
+    # st.write(dlEoLP)
+    dlEoLP["Type"] = "Delivered"
+    loEoLP["Type"] = "Lost"
+    EoLP = pd.concat([dlEoLP, loEoLP])
+    EoLP = EoLP.merge(df_occitanie, left_on="M", right_on="COM")
+    st.write(f"The number of EoL take-back order is {dmEoLP['Value'].sum()}")
+    bar = px.bar(EoLP, x="Year", y="Value", color="Type", hover_data='Commune', title="Fulfillment for EoL products")
+    bar.update_layout(yaxis_title="Number of EoL Recovery Orders")
+    st.plotly_chart(bar)
+    st.write(f"The number of lost EoL take-back order is {loEoLP["Value"].sum()}")
+
+    year_EoLP = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_EoLP")
+    st.plotly_chart(px.scatter_mapbox(EoLP[EoLP["Year"]==str(year_EoLP)], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of EoL fulfillment"))
+
+else:
+    st.write(f"The number of lost retrofit orders is {lo_PR['Value'].sum()}")
+    st.write(f"The number of EoL take-back orders is {dmEoLP['Value'].sum()}")
+    st.write(f"The number of lost EoL take-back orders is {loEoLP['Value'].sum()}")
+    # dm_PR = dm_PR.merge(df_occitanie, left_on="M", right_on="COM")
+    # dm_PR.sort_values(by=["PMUN"], inplace=True)
+    # fig_bar = px.bar(dm_PR, x="Year", y="Value", color="Commune", title="Demand for retrofit per city")
+    # fig_bar.update_layout(showlegend=False)
+    # # st.plotly_chart(fig_bar)
+
+    # dl_PR["Type"] = "Delivered"
+    # lo_PR["Type"] = "Lost"
+    # lo_PR = lo_PR.astype({"Year": int})
+    # PR = pd.concat([dl_PR, lo_PR])
+    # PR = PR.merge(df_occitanie, left_on="M", right_on="COM")
+    # # st.plotly_chart(px.bar(PR, x="Year", y="Value", color="Type", hover_data="Commune", title="Fulfillment for retrofit"))
+    # # year_PR = st.slider("Year", min_value=1, max_value=20, value=1, step=1, key="year_PR")
+    # # fig = px.scatter_mapbox(PR[PR["Year"]==year_PR], lat="Latitude", lon="Longitude", color="Type", size="Value", hover_data=["Commune", "Value"],color_discrete_sequence=px.colors.qualitative.Dark2, zoom=zoom_plotly, height=height_map, title="Geographical distribution of retrofit fulfillment")
+    # # st.plotly_chart(fig)
+
+    dmEoLP = df_results[df_results['Type'].str.startswith('dmEoLP')].copy()
+    # st.write(dmEoLP)
+    loEoLP = df_results[df_results['Type'].str.startswith('loEoLP')].copy()
+    dmEoLP["M"] = dmEoLP["Type"].str.extract(r'dmEoLP\[(\d+)')
+    dmEoLP["Product"] = dmEoLP["Type"].str.extract(r'dmEoLP\[\d+[A-Z],\d+,(.*?)\]')
+    dmEoLP["Month"] = dmEoLP["Type"].str.extract(r'dmEoLP\[\d+[A-Z],(\d+)')
+    dmEoLP.drop(columns=["Type"], inplace=True)
+    dmEoLP_month = dmEoLP.groupby(["Month", "Product"]).sum().reset_index()
+    dmEoLP_month.drop(columns=["M"], inplace=True)
+    # dmEoLP = dmEoLP.merge(df_occitanie, left_on="M", right_on="COM")
+    # dmEoLP.sort_values(by=["PMUN"], inplace=True)
+    # st.write(dmEoLP_month)
+    dmEoLP_month_line = px.scatter(dmEoLP_month, x="Month", y="Value", title="Demand for EoL products", color_discrete_sequence=["darkblue"])
+    dmEoLP_month_line.update_traces(name="EoL Demand", showlegend=True)
+    # # fig_bar_eol = px.bar(dmEoLP, x="Year", y="Value", title="Demand for EoL products")
+    # # fig_bar_eol.update_layout(showlegend=False)
+    # # st.plotly_chart(fig_bar_eol)
 
 
+    loEoLP["M"] = loEoLP["Type"].str.extract(r'loEoLP\[(\d+)')
+    loEoLP["Product"] = loEoLP["Type"].str.extract(r'loEoLP\[\d+[A-Z],\d+,(.*?)\]')
+    loEoLP["Month"] = loEoLP["Type"].str.extract(r'loEoLP\[\d+[A-Z],(\d+)')
+    loEoLP.drop(columns=["Type"], inplace=True)
+    loEoLP = loEoLP.groupby(["Month", "Product"]).sum().reset_index()
+    loEoLP.drop(columns=["M"], inplace=True)
+    # st.write(loEoLP)
+    fig_scatter = px.scatter(loEoLP, x="Month", y="Value", title="Lost orders for EoL products", color_discrete_sequence=["red"])
+    fig_scatter.update_traces(name="Lost orders", showlegend=True)
+    dmEoLP_month_line.add_traces(fig_scatter.data)
+    st.plotly_chart(dmEoLP_month_line)
+    # dlEoLP = dmEoLP[['M', 'Product', 'Year']].copy()
+    # for row in dlEoLP.iterrows():
+    #     lo = loEoLP[(loEoLP["M"]==row[1]["M"]) & (loEoLP["Product"]==row[1]["Product"]) & (loEoLP["Year"]==row[1]["Year"])]
+    #     if lo.shape[0] == 0:
+    #         dlEoLP.loc[row[0], "Value"] = dmEoLP[(dmEoLP["M"]==row[1]["M"]) & (dmEoLP["Product"]==row[1]["Product"]) & (dmEoLP["Year"]==row[1]["Year"])].Value.values[0]
+    #     else:
+    #         dlEoLP.loc[row[0], "Value"] = dmEoLP[(dmEoLP["M"]==row[1]["M"]) & (dmEoLP["Product"]==row[1]["Product"]) & (dmEoLP["Year"]==row[1]["Year"])].Value.values[0] - lo.Value.values[0]
+    # # st.write(dlEoLP)
+    # dlEoLP["Type"] = "Delivered"
+    # loEoLP["Type"] = "Lost"
+    # # st.write(f"The lost EoL take-back order is {loEoLP["Value"].sum()}")
+    # EoLP = pd.concat([dlEoLP, loEoLP])
+    # EoLP = EoLP.merge(df_occitanie, left_on="M", right_on="COM")
+    # EoLP = EoLP.groupby(["Product", "Year", "Type"]).sum().reset_index()
+    # st.write(EoLP)
+    # # st.plotly_chart(px.bar(EoLP, x="Year", y="Value", color="Type", hover_data='Commune', title="Fulfillment for EoL products"))
+
+
+    
 '''
 ## Facility Location
 '''
@@ -169,25 +255,68 @@ for commune in x["Commune"].unique():
     for type in x["type"].unique():
         x.loc[(x["Commune"]==commune) & (x["type"]==type), "Longitude"] = x[(x["Commune"]==commune) & (x["type"]==type)]["Longitude"] + np.random.normal(0, 0.02)
         x.loc[(x["Commune"]==commune) & (x["type"]==type), "Latitude"] = x[(x["Commune"]==commune) & (x["type"]==type)]["Latitude"] + np.random.normal(0, 0.02)
+if scenario == "Integrated" or scenario == "Together":
+    year_filt = st.slider("Year", min_value=1, max_value=20, value=1, step=1)
+    types = st.multiselect("Type of facilities", x["type"].unique(), default=x["type"].unique())
+    x_year = x[x["year"]==str(year_filt)]
+    x_year = x_year[x_year["type"].isin(types)]
+    st.write(x_year)
+else:
+    year_filt = st.slider("Month", min_value=1, max_value=240, value=1, step=1)
+    types = st.multiselect("Type of facilities", x["type"].unique(), default=x["type"].unique())
+    x_year = x[x["year"]==str(year_filt)]
+    x_year = x_year[x_year["type"].isin(types)]
+    st.write(x_year)
 
-year = st.slider("Year", min_value=1, max_value=20, value=1, step=1)
-types = st.multiselect("Type of facilities", x["type"].unique(), default=x["type"].unique())
-x_year = x[x["year"]==str(year)]
-x_year = x_year[x_year["type"].isin(types)]
-st.write(x_year)
+st.write(x)
+if scenario == "Integrated" or scenario == "Together":
+    T = 20
+else:
+    T = 240
 
-icons = {
-        'L': 'warehouse',
-        'R': 'wrench',
-        'V': 'recycle',
-        'F': 'industry'
-    }
-type_colors = {
-    'L': 'blue',  # Blue for 'L'
-    'R': 'red',   # Red for 'R'
-    'V': 'green',  # Green for 'V'
-    'F': 'orange'  # Orange for 'F'
-}
+years = list(range(1, T+1))
+years = [str(year) for year in years]
+x_transpose = pd.DataFrame(columns=["type", "COM"] + years)
+
+rows = []
+for type in ["R", "V", "L", "F"]:
+    COM = x[x["type"]==type]["COM"].unique()
+    for com in COM:
+        row = {"type": type, "COM": com}
+        row.update({year: 0 for year in years})
+        present_years = x[
+            (x["type"] == type) & (x["COM"] == com)
+        ]["year"].tolist()
+        for year in present_years:
+            row[year] = 1
+        rows.append(row)
+x_transpose = pd.DataFrame(rows)
+x_transpose.fillna(0, inplace=True)
+# st.write(x_transpose)
+timeline = x_transpose.groupby("type").sum()
+timeline.drop(columns=["COM"], inplace=True)
+
+# st.write(timeline)
+
+fig = go.Figure()
+# Add a line for each type
+
+for type_ in ["R", "V", "L", "F"]:
+    fig.add_trace(go.Scatter(
+        x=timeline.columns, 
+        y=timeline.loc[type_], 
+        mode='markers', 
+        name=f'{type_}',
+        marker=dict(color=type_colors[type_], opacity=0.6, size=5),
+    ))
+    # st.write(timeline.loc[type_])
+fig.update_layout(
+    xaxis_title="Planning Periods",
+    yaxis_title="Number of facilities",
+    legend_title="Type",
+)
+st.plotly_chart(fig)
+
 
 if x_year.shape[0] == 0:
     st.write("No facilities found.")
@@ -196,7 +325,7 @@ else:
     center_lat = x_year.Latitude.mean()
     center_lon = x_year.Longitude.mean()
 
-
+    # st.write(x_year)
     m = folium.Map(location=[center_lat, center_lon], zoom_start=zoom_folium, height=height_map)
 
     # Add markers
@@ -208,6 +337,34 @@ else:
         ).add_to(m)
 
     folium_static(m)
+
+if scenario == "Integrated" or scenario == "Together":
+    st.write(f"PR at year {year_filt}",PR[PR["Year"]==year_filt])
+    fig = px.scatter_mapbox(PR[PR["Year"]==year_filt],
+                         lat="Latitude",
+                         lon="Longitude",
+                         color="Type",
+                         size="Value",
+                         hover_data=["Commune", "Value"],
+                         color_discrete_sequence=px.colors.qualitative.Dark2,
+                         mapbox_style="carto-positron",
+                         zoom=zoom_plotly,
+                         height=height_map,
+                         title="Geographical distribution of retrofit fulfillment")
+    size_icon = 14
+    for icon in icons:
+        fig.add_trace(go.Scattermapbox(
+        lat=x_year[x_year["type"]==icon]["Latitude"],
+        lon=x_year[x_year["type"]==icon]["Longitude"],
+        mode='markers',
+        marker=go.scattermapbox.Marker(size=size_icon, color=type_colors[icon]),
+        name=icon,
+        showlegend=True
+    ))
+
+    st.plotly_chart(fig)
+
+
 
 '''
 ## Transport Flow
@@ -309,7 +466,9 @@ folium_static(m)
 ## Footprint Decomposition
 '''
 
-decomp = df_results.iloc[2:6,:]
-decomp["Percentage"] = decomp["Value"]/df_results.iloc[1,1]
+footprint = ["Activation", "Lost orders", "Transport","Operation"]
+decomp = df_results[df_results['Type'].isin(footprint)].copy()
+# st.write(decomp, df_results[df_results['Type']=="Total footprint"].Value.values[0])
+decomp["Percentage"] = decomp["Value"]/df_results[df_results['Type']=="Total footprint"].Value.values[0]
 st.plotly_chart(px.treemap(decomp, path=['Type'], values='Percentage', title="Footprint decomposition"))
 
