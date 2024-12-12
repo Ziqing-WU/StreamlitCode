@@ -70,7 +70,7 @@ T = [i for i in range(1, 21)]
 if collab == "Hyperconnected":
     T = [i for i in range(1, 241)]
 
-map_df = pd.read_csv(rf'{executive_factor_folder}\Ref-1-CodeGeo\GeoPosition.csv',
+map_df = pd.read_csv(os.path.join(executive_factor_folder, "Ref-1-CodeGeo", "GeoPosition.csv"),
                      dtype={
                          'Code Commune': 'object',
                          'Longitude': 'float64',

@@ -44,7 +44,7 @@ if not os.path.exists(source_path):
 precharged_folder = r'C:\Users\zwu\Documents\StreamlitCode\DemandGenerator\data_precharged'
 executive_factor_folder = r'C:\Users\zwu\Documents\Data\ExecutiveFactors'
 if not os.path.exists(executive_factor_folder):
-    executive_factor_folder = r'\Data\ExecutiveFactors'
+    executive_factor_folder = os.path.join(os.getcwd(), 'Data', 'ExecutiveFactors')
 
 def change_type(df_vehicles, to_numeric=['poids_a_vide_national','cylindree','niv_sonore','co2', 'puissance_net_maxi', 'Age']):
     df_vehicles['date_premiere_immatriculation'] = pd.to_datetime(df_vehicles['date_premiere_immatriculation'], errors='coerce', format='%d/%m/%Y').dt.normalize()
@@ -54,16 +54,16 @@ def change_type(df_vehicles, to_numeric=['poids_a_vide_national','cylindree','ni
 
 def create_map():
     # This file comes from the geoservices product Admin Express COG 2022
-    fp = rf'{executive_factor_folder}\Ref-1-CodeGeo\COMMUNE_OCCITANIE.shp'
+    fp = os.path.join(executive_factor_folder, "Ref-1-CodeGeo", "COMMUNE_OCCITANIE.shp")
     map_df = gpd.read_file(fp)
     # map_df.to_crs(pyproj.CRS.from_epsg(4326), inplace=True)
     return map_df[['INSEE_COM', 'geometry']].set_index('INSEE_COM')
 
 
 def get_communes_by_population(pop):
-    df = pd.read_csv(rf"{executive_factor_folder}\donnees_communes_population.csv", encoding='utf-8', sep=';',
+    df = pd.read_csv(os.path.join(executive_factor_folder, "donnees_communes_population.csv"), encoding='utf-8', sep=';',
         dtype={'COM': str})
-    geo = pd.read_csv(rf"{executive_factor_folder}\Ref-1-CodeGeo\GeoPosition.csv")
+    geo = pd.read_csv(os.path.join(executive_factor_folder, "Ref-1-CodeGeo", "GeoPosition.csv"))
     df_occitanie = df[df['REG']==76]
     df_occitanie = df_occitanie[["COM", "Commune", "PMUN"]]
     df_occitanie = df_occitanie.join(geo.set_index('Code Commune'), on='COM')
